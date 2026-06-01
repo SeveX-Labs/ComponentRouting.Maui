@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      ComponentRouting.Maui targets net10.0 because it contains shared MAUI routing/presenter logic
+      and no platform-specific handlers/resources. MAUI apps consume this assembly from their
+      platform-specific targets.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ComponentRouting.Maui</RootNamespace>
+    <AssemblyName>ComponentRouting.Maui</AssemblyName>
+    <PackageId>ComponentRouting.Maui</PackageId>
+    <Version>1.0.0</Version>
+    <PackageVersion>$(Version)</PackageVersion>
+    <Title>ComponentRouting.Maui</Title>
+    <Description>Component-based routing, navigation, presenters, overlays, snackbars, and dependency-injection helpers for .NET MAUI applications.</Description>
+    <Authors>Alessandro Severa</Authors>
+    <Company>SeveX Labs</Company>
+    <RepositoryUrl>https://github.com/SeveX-Labs/ComponentRouting.Maui</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/SeveX-Labs/ComponentRouting.Maui</PackageProjectUrl>
+    <PackageTags>maui;dotnet-maui;routing;navigation;component;components;presenter;router;modal;overlay;snackbar;dependency-injection</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <UseMaui>true</UseMaui>
+	<Configurations>Debug;Release;Release_Staging</Configurations>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <WarningLevel>4</WarningLevel>
+    <NoWarn>1701;1702;IL2121;CS1573;CS1591;CS8618;CS8603;CS8604;</NoWarn>
+    <LangVersion>11.0</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <LangVersion>11.0</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Staging|AnyCPU' ">
+    <DebugType></DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Release_Staging</OutputPath>
+    <DefineConstants></DefineConstants>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile></DocumentationFile>
+    <IntermediateOutputPath>obj\Release_Staging</IntermediateOutputPath>
+    <NoWarn></NoWarn>
+    <NoStdLib>false</NoStdLib>
+    <Nullable></Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <PackageReference Include="NGettext" Version="0.6.7" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="PropertyChanged.Fody" Version="4.1.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+  </ItemGroup>
+</Project>

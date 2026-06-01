@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ComponentRouting.Maui.Sample.Presenters.Tabs.AboutPage"
+             Title="About">
+    <AbsoluteLayout>
+        <ScrollView AbsoluteLayout.LayoutBounds="0,0,1,1"
+                    AbsoluteLayout.LayoutFlags="All">
+            <VerticalStackLayout Padding="24" Spacing="12">
+                <Label Text="About this sample" FontSize="24" FontAttributes="Bold" />
+                <Label x:Name="DescriptionLabel" LineBreakMode="WordWrap" />
+                <Label Text="The app uses ComponentFactory, Router.PresentComponent, Router.PreloadComponent, overlays, snackbars, and mounted component lookup." LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <AbsoluteLayout x:Name="OverlayLayer"
+                        AbsoluteLayout.LayoutBounds="0,0,1,1"
+                        AbsoluteLayout.LayoutFlags="All" />
+    </AbsoluteLayout>
+</ContentPage>

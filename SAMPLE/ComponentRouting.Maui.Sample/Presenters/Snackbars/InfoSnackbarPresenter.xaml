@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<abstraction:SnackbarPresenter xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                               xmlns:abstraction="clr-namespace:ComponentRouting.Maui.Abstraction;assembly=ComponentRouting.Maui"
+                               x:Class="ComponentRouting.Maui.Sample.Presenters.Snackbars.InfoSnackbarPresenter"
+                               BackgroundColor="Transparent">
+    <Grid Padding="16"
+          VerticalOptions="End">
+        <Border Padding="14"
+                StrokeThickness="0"
+                BackgroundColor="#323232">
+            <Label x:Name="MessageLabel"
+                   TextColor="White"
+                   LineBreakMode="WordWrap" />
+        </Border>
+    </Grid>
+</abstraction:SnackbarPresenter>
