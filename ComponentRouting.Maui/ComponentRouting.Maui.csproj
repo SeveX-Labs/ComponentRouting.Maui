@@ -27,7 +27,6 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <UseMaui>true</UseMaui>
 	<Configurations>Debug;Release;Release_Staging</Configurations>
   </PropertyGroup>
 
