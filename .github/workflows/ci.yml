@@ -19,7 +19,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore ComponentRouting.Maui.sln
+        run: dotnet restore ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj
 
       - name: Build library
         run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0 -c Release --no-restore
