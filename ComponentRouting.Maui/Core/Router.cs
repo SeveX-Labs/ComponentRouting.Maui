@@ -8,9 +8,7 @@ public interface Router
     Component? CurrentTabComponent { get; }
     Component? MountedComponent { get; }
     List<Component> ComponentsStack { get; }
-
-    bool IsSafeAreaInsetsApplyiable { get; }
-
+    
     TComponent? GetMountedComponent<TComponent>()
         where TComponent : Component;
 

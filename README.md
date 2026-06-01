@@ -10,7 +10,7 @@ The library focuses on routing and composition rather than visual styling. Your 
 - Component preloading through `Router.PreloadComponent<TComponent, TState, TResult>(state)`.
 - Push and modal dismissal through `Router.DismissComponent<TComponent, TState, TResult>(animated)`.
 - Mounted overlay and snackbar lookup through `GetMountedComponent<TComponent>()` and `GetMountedComponents<TComponent>()`.
-- Extensible routing through `AbstractRouter`, including `RootComponent`, `IsSafeAreaInsetsApplyiable`, and `CanNavigateBack(...)`.
+- Extensible routing through `AbstractRouter`, including `RootComponent` and `CanNavigateBack(...)`.
 - Component creation through `ComponentFactory.CreateComponent<T>()`.
 - Microsoft dependency injection registration and component scanning with `AddComponentRoutingMaui(...)`.
 - Built-in component base types for root, page, modal, push, overlay, snackbar, tab, and flyout flows.
@@ -79,9 +79,7 @@ public sealed class SampleRouter : AbstractRouter
         : base(componentFactory, catalogProvider, safeAreaInsetsService)
     {
     }
-
-    public override bool IsSafeAreaInsetsApplyiable => false;
-
+    
     public override RootComponent RootComponent =>
         ComponentFactory.CreateComponent<SampleTabbedRootComponent>();
 

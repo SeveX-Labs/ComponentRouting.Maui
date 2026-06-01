@@ -145,7 +145,6 @@ public sealed class ConfigurableTestRouter : AbstractRouter
     {
     }
 
-    public override bool IsSafeAreaInsetsApplyiable => false;
     public override RootComponent RootComponent { get; } = new TestRootComponent();
 
     protected override bool CanNavigateBack(Component component) => true;

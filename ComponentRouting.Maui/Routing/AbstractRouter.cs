@@ -56,7 +56,6 @@ public abstract class AbstractRouter : Router
     public Component? MountedComponent { get; private set; }
     public List<Component> ComponentsStack { get; private set; }
 
-    public abstract bool IsSafeAreaInsetsApplyiable { get; }
     public abstract RootComponent RootComponent { get; }
 
     protected ComponentFactory ComponentFactory { get; }

@@ -15,9 +15,7 @@ public sealed class SampleRouter : AbstractRouter
         : base(componentFactory, catalogProvider, safeAreaInsetsService)
     {
     }
-
-    public override bool IsSafeAreaInsetsApplyiable => false;
-
+    
     public override RootComponent RootComponent =>
         ComponentFactory.CreateComponent<SampleModeRootComponent>();
 
