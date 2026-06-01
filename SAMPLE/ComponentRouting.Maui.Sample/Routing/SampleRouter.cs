@@ -19,7 +19,7 @@ public sealed class SampleRouter : AbstractRouter
     public override bool IsSafeAreaInsetsApplyiable => false;
 
     public override RootComponent RootComponent =>
-        ComponentFactory.CreateComponent<SampleTabbedRootComponent>();
+        ComponentFactory.CreateComponent<SampleModeRootComponent>();
 
     protected override bool CanNavigateBack(Component component)
     {

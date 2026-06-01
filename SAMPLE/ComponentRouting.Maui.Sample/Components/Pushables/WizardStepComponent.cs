@@ -44,6 +44,11 @@ public sealed class WizardStepComponent : PushableComponent<WizardStepComponent.
             "This component was preloaded before presentation.");
         await router.PreloadComponent<WizardConfirmComponent, WizardConfirmComponent.ComponentState, WizardResult>(state);
         var result = await router.PresentComponent<WizardConfirmComponent, WizardConfirmComponent.ComponentState, WizardResult>(state);
+
+        if (result != WizardResult.Completed)
+            return;
+
+        await router.DismissComponent<WizardStepComponent, ComponentState, WizardResult>(true);
         CompletionSource?.TrySetResult(result);
     }
 }

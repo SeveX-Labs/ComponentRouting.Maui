@@ -4,14 +4,14 @@ namespace ComponentRouting.Maui.Sample.Presenters.Pushables;
 
 public partial class WizardConfirmPage : PushablePresenter
 {
-    private Action? complete;
+    private Func<Task>? complete;
 
     public WizardConfirmPage()
     {
         InitializeComponent();
     }
 
-    public void Initialize(string title, string message, Action complete)
+    public void Initialize(string title, string message, Func<Task> complete)
     {
         Title = title;
         TitleLabel.Text = title;
@@ -19,8 +19,23 @@ public partial class WizardConfirmPage : PushablePresenter
         this.complete = complete;
     }
 
-    private void HandleCompleteClicked(object? sender, EventArgs e)
+    private async void HandleCompleteClicked(object? sender, EventArgs e)
     {
-        complete?.Invoke();
+        if (complete is null)
+            return;
+
+        var button = sender as Button;
+        if (button is not null)
+            button.IsEnabled = false;
+
+        try
+        {
+            await complete();
+        }
+        finally
+        {
+            if (button is not null)
+                button.IsEnabled = true;
+        }
     }
 }

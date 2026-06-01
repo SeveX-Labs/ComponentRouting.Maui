@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ComponentRouting.Maui.Sample.Presenters.Flyout.SampleFlyoutHomePage"
+             Title="Home">
+    <AbsoluteLayout>
+        <ScrollView AbsoluteLayout.LayoutBounds="0,0,1,1"
+                    AbsoluteLayout.LayoutFlags="All">
+            <VerticalStackLayout Padding="24" Spacing="12">
+                <Button Text="Menu"
+                        HorizontalOptions="Start"
+                        Clicked="HandleMenuClicked" />
+                <Label Text="Flyout root home"
+                       FontSize="24"
+                       FontAttributes="Bold" />
+                <Label Text="This page demonstrates flyout component presentation, wizard navigation, mounted overlay lookup, and transient snackbars."
+                       FontSize="14" />
+                <Button Text="Start Wizard" Clicked="HandleStartWizardClicked" />
+                <Button Text="Show Loading Popup" Clicked="HandleShowLoadingClicked" />
+                <Button Text="Hide Loading Popup" Clicked="HandleHideLoadingClicked" />
+                <Button Text="Show Snackbar" Clicked="HandleShowSnackbarClicked" />
+                <Button Text="Count Mounted Snackbars" Clicked="HandleCountSnackbarsClicked" />
+                <Border Padding="12" StrokeThickness="1">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="ComponentFactory singleton lookup" FontAttributes="Bold" />
+                        <Label x:Name="FactoryStatusLabel" Text="Not evaluated" />
+                        <Label x:Name="MountedCountsLabel" Text="Mounted overlays: 0; snackbars: 0" />
+                        <Label x:Name="LastResultLabel" Text="No result yet" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+        <AbsoluteLayout x:Name="OverlayLayer"
+                        AbsoluteLayout.LayoutBounds="0,0,1,1"
+                        AbsoluteLayout.LayoutFlags="All" />
+    </AbsoluteLayout>
+</ContentPage>

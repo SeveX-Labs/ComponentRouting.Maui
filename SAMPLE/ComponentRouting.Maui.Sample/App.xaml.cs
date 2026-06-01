@@ -21,6 +21,6 @@ public partial class App : Application
 
 	private void HandleWindowCreated(object? sender, EventArgs e)
 	{
-		_ = router.PresentComponent<Components.Root.SampleTabbedRootComponent, bool, bool>(true);
+		_ = router.PresentComponent<Components.Root.SampleModeRootComponent, bool, bool>(true);
 	}
 }

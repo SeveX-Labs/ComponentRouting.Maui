@@ -25,13 +25,19 @@ public sealed class WizardConfirmComponent : PushableComponent<WizardConfirmComp
         ((WizardConfirmPage)Presenter!).Initialize(
             state.Title,
             state.Message,
-            () => CompletionSource?.TrySetResult(WizardResult.Completed));
+            Complete);
         return Task.CompletedTask;
     }
 
     protected override Task PresentInternal()
     {
         return Task.CompletedTask;
+    }
+
+    private async Task Complete()
+    {
+        await router.DismissComponent<WizardConfirmComponent, ComponentState, WizardResult>(true);
+        CompletionSource?.TrySetResult(WizardResult.Completed);
     }
 
     public override void HandleBackTapped()
