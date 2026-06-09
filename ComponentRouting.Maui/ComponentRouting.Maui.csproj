@@ -36,6 +36,11 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(_IsPacking)' == 'true'">
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <WarningLevel>4</WarningLevel>
     <NoWarn>1701;1702;IL2121;CS1573;CS1591;CS8618;CS8603;CS8604;</NoWarn>
@@ -58,7 +63,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
-    <ProjectReference Include="..\ComponentRouting.Core\ComponentRouting.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ComponentRouting.Core\ComponentRouting.Core.csproj" PrivateAssets="all" SetTargetFramework="TargetFramework=net10.0" GlobalPropertiesToRemove="TargetFrameworks" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
