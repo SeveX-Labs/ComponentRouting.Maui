@@ -2,9 +2,8 @@
 
   <PropertyGroup>
     <!--
-      ComponentRouting.Maui targets net10.0 because it contains shared MAUI routing/presenter logic
-      and no platform-specific handlers/resources. MAUI apps consume this assembly from their
-      platform-specific targets.
+      ComponentRouting.Maui intentionally targets MAUI platform TFMs only.
+      MAUI apps consume this assembly from their platform-specific targets.
     -->
     <TargetFrameworks>net10.0-ios;net10.0-android;net10.0-maccatalyst</TargetFrameworks>
     <UseMaui>True</UseMaui>
@@ -29,6 +28,8 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 	<Configurations>Debug;Release;Release_Staging</Configurations>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);AddCoreAssemblyToPackage</TargetsForTfmSpecificBuildOutput>
+    <ComponentRoutingCoreAssemblyPath>$(MSBuildThisFileDirectory)..\ComponentRouting.Core\bin\$(Configuration)\net10.0\ComponentRouting.Core.dll</ComponentRoutingCoreAssemblyPath>
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
@@ -57,10 +58,22 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <ProjectReference Include="..\ComponentRouting.Core\ComponentRouting.Core.csproj" PrivateAssets="all" />
     <PackageReference Include="NGettext" Version="0.6.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="PropertyChanged.Fody" Version="4.1.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
   </ItemGroup>
+
+  <Target Name="AddCoreAssemblyToPackage" Returns="@(BuildOutputInPackage)">
+    <ItemGroup>
+      <BuildOutputInPackage
+        Include="$(ComponentRoutingCoreAssemblyPath)"
+        Condition="Exists('$(ComponentRoutingCoreAssemblyPath)')">
+        <FinalOutputPath>$(ComponentRoutingCoreAssemblyPath)</FinalOutputPath>
+        <TargetPath>ComponentRouting.Core.dll</TargetPath>
+      </BuildOutputInPackage>
+    </ItemGroup>
+  </Target>
 </Project>

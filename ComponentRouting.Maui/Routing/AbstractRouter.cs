@@ -21,34 +21,6 @@ namespace ComponentRouting.Maui.Routing;
 
 public abstract class AbstractRouter : Router
 {
-    #region nested classes
-
-    protected class ComponentHistoryItem
-    {
-        public Type ParentComponentType { get; }
-        public Component Component { get; }
-        public DateTime Timestamp { get; }
-
-        public ComponentHistoryItem(Type parentComponentType, Component component)
-        {
-            ParentComponentType = parentComponentType;
-            Component = component;
-            Timestamp = DateTime.Now;
-        }
-
-        public bool IsSnackbar()
-        {
-            return Component is SnackbarComponent;
-        }
-
-        public bool IsPopup()
-        {
-            return Component.IsSubclassOfRawGeneric(typeof(OverlayComponent<,>)) && !(Component is SnackbarComponent);
-        }
-    }
-
-    #endregion
-
     #region auto-properties
 
     public Component? CurrentTabComponent { get; private set; }
@@ -64,8 +36,7 @@ public abstract class AbstractRouter : Router
 
     protected View SafeAreaBottomPatch { get; set; }
 
-    private List<ComponentHistoryItem> Snackbars { get; set; }
-    private List<ComponentHistoryItem> Popups { get; set; }
+    private ComponentHistory History { get; }
     // private List<ComponentHistoryItem> Panels { get; set; }
 
     #endregion
@@ -79,8 +50,7 @@ public abstract class AbstractRouter : Router
         SafeAreaInsetsService = safeAreaInsetsService;
 
         ComponentsStack = new List<Component>();
-        Snackbars = new List<ComponentHistoryItem>();
-        Popups = new List<ComponentHistoryItem>();
+        History = new ComponentHistory();
         // Panels = new List<ComponentHistoryItem>();
     }
 
@@ -137,31 +107,13 @@ public abstract class AbstractRouter : Router
     public TComponent? GetMountedComponent<TComponent>()
         where TComponent : Component
     {
-        var components = GetMountedComponents<TComponent>();
-
-        if (components.Count == 0)
-            return default;
-
-        if (components.Count == 1)
-            return components[0];
-
-        throw new InvalidOperationException(
-            $"Multiple mounted {typeof(TComponent).Name} instances were found. Use {nameof(GetMountedComponents)}<{typeof(TComponent).Name}>() instead.");
+        return History.GetMountedComponent<TComponent>();
     }
 
     public IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
         where TComponent : Component
     {
-        var result = new List<TComponent>();
-        var seen = new HashSet<Component>(ReferenceEqualityComparer.Instance);
-
-        foreach (var component in Popups.Concat(Snackbars).Select(item => item.Component))
-        {
-            if (component is TComponent typedComponent && seen.Add(component))
-                result.Add(typedComponent);
-        }
-
-        return result;
+        return History.GetMountedComponents<TComponent>();
     }
 
     public virtual async Task DismissComponent<TComponent, TState, TResult>(bool animated = true)
@@ -210,21 +162,17 @@ public abstract class AbstractRouter : Router
 
     public virtual Task UnpresentRootComponent()
     {
-        if (Snackbars.Any())
+        if (History.Snackbars.Any())
         {
-            var snackbarsClone = Snackbars.ToList();
-            foreach (var snackbar in snackbarsClone)
-                snackbar.Component.Unpresent();
+            foreach (var snackbar in History.ClearSnackbars())
+                snackbar.Unpresent();
         }
-        Snackbars = new List<ComponentHistoryItem>();
 
-        if (Popups.Any())
+        if (History.Popups.Any())
         {
-            var popupsClone = Popups.ToList();
-            foreach (var popup in popupsClone)
-                popup.Component.Unpresent();
+            foreach (var popup in History.ClearPopups())
+                popup.Unpresent();
         }
-        Popups = new List<ComponentHistoryItem>();
 
         // if (Panels.Any()) _ = Panels.Select(p => { p.Component.Unpresent(); return p; }).ToList();
         // Panels = new List<ComponentHistoryItem>();
@@ -485,39 +433,17 @@ public abstract class AbstractRouter : Router
 
     private ComponentHistoryItem? TryAndGetLatestHistorySnackbar(Type parentComponentType)
     {
-        return GetLatestHistoryItem(Snackbars, parentComponentType);
+        return History.TryGetLatestSnackbar(parentComponentType);
     }
 
     private ComponentHistoryItem? TryAndGetLatestHistoryPopup(Type parentComponentType)
     {
-        return GetLatestHistoryItem(Popups, parentComponentType);
-    }
-
-    private static ComponentHistoryItem? GetLatestHistoryItem(
-        IReadOnlyList<ComponentHistoryItem> source,
-        Type parentComponentType)
-    {
-        return source
-            .Where(item => item.ParentComponentType == parentComponentType)
-            .OrderByDescending(item => item.Timestamp)
-            .FirstOrDefault();
+        return History.TryGetLatestPopup(parentComponentType);
     }
 
     private void DismissMostRecentHistoryItem(ComponentHistoryItem? snackbarItem, ComponentHistoryItem? popupItem, ComponentHistoryItem? panelItem)
     {
-        var historyItems = new List<ComponentHistoryItem>();
-        if (snackbarItem is not null) historyItems.Add(snackbarItem);
-        if (popupItem is not null) historyItems.Add(popupItem);
-        if (panelItem is not null) historyItems.Add(panelItem);
-
-        if (historyItems.Any())
-        {
-            var mostRecentHistoryItem = historyItems
-                .OrderByDescending(chi => chi.Timestamp)
-                .First();
-
-            mostRecentHistoryItem.Component.Unpresent();
-        }
+        History.DismissMostRecent(snackbarItem, popupItem, panelItem);
     }
 
     private async Task PushComponentInternal(Component component)
@@ -643,9 +569,8 @@ public abstract class AbstractRouter : Router
             if (insets.Top > 0) snackbarPresenter.TranslationY = insets.Top;
         }
 
-        var historyItem = new ComponentHistoryItem(parentComponent.GetType(), component);
-        if (component is SnackbarComponent) Snackbars.Add(historyItem);
-        else Popups.Add(historyItem);
+        if (component is SnackbarComponent) History.AddSnackbar(parentComponent.GetType(), component);
+        else History.AddPopup(parentComponent.GetType(), component);
 
         AbsoluteLayout.SetLayoutFlags(layout, AbsoluteLayoutFlags.All);
         AbsoluteLayout.SetLayoutBounds(layout, new Rect(0, 0, 1, 1));
@@ -658,7 +583,7 @@ public abstract class AbstractRouter : Router
 
     private bool TryFindOverlayContainer(out Component parentComponent, out AbsoluteLayout containerLayout)
     {
-        if (TryGetOverlayContainer(Popups.LastOrDefault()?.Component, out parentComponent, out containerLayout))
+        if (TryGetOverlayContainer(History.Popups.LastOrDefault()?.Component, out parentComponent, out containerLayout))
             return true;
 
         if (TryGetOverlayContainer(ComponentsStack.LastOrDefault(), out parentComponent, out containerLayout))
@@ -696,11 +621,11 @@ public abstract class AbstractRouter : Router
 
         if (component.Presenter is Layout layout)
         {
-            if (Popups.Count > 0 &&
-                Popups.Last().Component.Presenter is OverlayHost { OverlayContainer: not null } popupHost &&
+            if (History.Popups.Count > 0 &&
+                History.Popups.Last().Component.Presenter is OverlayHost { OverlayContainer: not null } popupHost &&
                 popupHost.OverlayContainer.Children.Contains(layout))
             {
-                parentComponent = Popups.Last().Component;
+                parentComponent = History.Popups.Last().Component;
                 containerLayout = popupHost.OverlayContainer;
             }
 
@@ -735,16 +660,7 @@ public abstract class AbstractRouter : Router
 
                 if (parentComponent is not null)
                 {
-                    if (component is SnackbarComponent)
-                    {
-                        var snackbarHistoryItem = Snackbars.FirstOrDefault(item => ReferenceEquals(item.Component, component));
-                        if (snackbarHistoryItem is not null) Snackbars.Remove(snackbarHistoryItem);
-                    }
-                    else
-                    {
-                        var popupHistoryItem = Popups.FirstOrDefault(item => ReferenceEquals(item.Component, component));
-                        if (popupHistoryItem is not null) Popups.Remove(popupHistoryItem);
-                    }
+                    History.Remove(component);
                 }
             }
         }
@@ -860,24 +776,11 @@ public abstract class AbstractRouter : Router
 
     private IList<Component> GetResumeComponents()
     {
-        var result = new List<Component>();
-        var seen = new HashSet<Component>(ReferenceEqualityComparer.Instance);
-
-        AddResumeComponent(MountedComponent, result, seen);
-        AddResumeComponent(CurrentTabComponent, result, seen);
-        AddResumeComponent(CurrentFlyoutComponent, result, seen);
-        AddResumeComponent(ComponentsStack.LastOrDefault(), result, seen);
-
-        return result;
-    }
-
-    private static void AddResumeComponent(
-        Component? component,
-        ICollection<Component> result,
-        ISet<Component> seen)
-    {
-        if (component is not null && seen.Add(component))
-            result.Add(component);
+        return ComponentHistory.GetResumeComponents(
+            MountedComponent,
+            CurrentTabComponent,
+            CurrentFlyoutComponent,
+            ComponentsStack.LastOrDefault()).ToList();
     }
 
     private async Task DispatchLifecycleEvent(Func<AppLifecycleAwareComponent, Task> dispatch)

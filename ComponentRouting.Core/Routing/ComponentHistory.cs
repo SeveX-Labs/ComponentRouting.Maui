@@ -1,0 +1,172 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace ComponentRouting.Maui.Routing;
+
+internal sealed class ComponentHistory
+{
+    private readonly List<ComponentHistoryItem> snackbars = new();
+    private readonly List<ComponentHistoryItem> popups = new();
+
+    public IReadOnlyList<ComponentHistoryItem> Snackbars => snackbars;
+    public IReadOnlyList<ComponentHistoryItem> Popups => popups;
+
+    public ComponentHistoryItem AddSnackbar(Type parentComponentType, Component component)
+    {
+        return Add(snackbars, parentComponentType, component, DateTime.Now);
+    }
+
+    public ComponentHistoryItem AddPopup(Type parentComponentType, Component component)
+    {
+        return Add(popups, parentComponentType, component, DateTime.Now);
+    }
+
+    internal ComponentHistoryItem AddSnackbar(Type parentComponentType, Component component, DateTime timestamp)
+    {
+        return Add(snackbars, parentComponentType, component, timestamp);
+    }
+
+    internal ComponentHistoryItem AddPopup(Type parentComponentType, Component component, DateTime timestamp)
+    {
+        return Add(popups, parentComponentType, component, timestamp);
+    }
+
+    public ComponentHistoryItem? TryGetLatestSnackbar(Type parentComponentType)
+    {
+        return GetLatestItem(snackbars, parentComponentType);
+    }
+
+    public ComponentHistoryItem? TryGetLatestPopup(Type parentComponentType)
+    {
+        return GetLatestItem(popups, parentComponentType);
+    }
+
+    public IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
+        where TComponent : Component
+    {
+        var result = new List<TComponent>();
+        var seen = new HashSet<Component>(ReferenceEqualityComparer.Instance);
+
+        foreach (var component in popups.Concat(snackbars).Select(item => item.Component))
+        {
+            if (component is TComponent typedComponent && seen.Add(component))
+                result.Add(typedComponent);
+        }
+
+        return result;
+    }
+
+    public TComponent? GetMountedComponent<TComponent>()
+        where TComponent : Component
+    {
+        var components = GetMountedComponents<TComponent>();
+
+        if (components.Count == 0)
+            return default;
+
+        if (components.Count == 1)
+            return components[0];
+
+        throw new InvalidOperationException(
+            $"Multiple mounted {typeof(TComponent).Name} instances were found. Use {nameof(Router.GetMountedComponents)}<{typeof(TComponent).Name}>() instead.");
+    }
+
+    public void DismissMostRecent(ComponentHistoryItem? snackbarItem, ComponentHistoryItem? popupItem, ComponentHistoryItem? panelItem = null)
+    {
+        var mostRecentHistoryItem = new[] { snackbarItem, popupItem, panelItem }
+            .Where(item => item is not null)
+            .OrderByDescending(item => item!.Timestamp)
+            .FirstOrDefault();
+
+        mostRecentHistoryItem?.Component.Unpresent();
+    }
+
+    public bool Remove(Component component)
+    {
+        var snackbarHistoryItem = snackbars.FirstOrDefault(item => ReferenceEquals(item.Component, component));
+        if (snackbarHistoryItem is not null)
+            return snackbars.Remove(snackbarHistoryItem);
+
+        var popupHistoryItem = popups.FirstOrDefault(item => ReferenceEquals(item.Component, component));
+        return popupHistoryItem is not null && popups.Remove(popupHistoryItem);
+    }
+
+    public IReadOnlyList<Component> ClearSnackbars()
+    {
+        return Clear(snackbars);
+    }
+
+    public IReadOnlyList<Component> ClearPopups()
+    {
+        return Clear(popups);
+    }
+
+    public static IReadOnlyList<Component> GetResumeComponents(
+        Component? mountedComponent,
+        Component? currentTabComponent,
+        Component? currentFlyoutComponent,
+        Component? lastStackComponent)
+    {
+        var result = new List<Component>();
+        var seen = new HashSet<Component>(ReferenceEqualityComparer.Instance);
+
+        AddResumeComponent(mountedComponent, result, seen);
+        AddResumeComponent(currentTabComponent, result, seen);
+        AddResumeComponent(currentFlyoutComponent, result, seen);
+        AddResumeComponent(lastStackComponent, result, seen);
+
+        return result;
+    }
+
+    private static ComponentHistoryItem Add(
+        ICollection<ComponentHistoryItem> target,
+        Type parentComponentType,
+        Component component,
+        DateTime timestamp)
+    {
+        var item = new ComponentHistoryItem(parentComponentType, component, timestamp);
+        target.Add(item);
+        return item;
+    }
+
+    private static ComponentHistoryItem? GetLatestItem(
+        IReadOnlyList<ComponentHistoryItem> source,
+        Type parentComponentType)
+    {
+        return source
+            .Where(item => item.ParentComponentType == parentComponentType)
+            .OrderByDescending(item => item.Timestamp)
+            .FirstOrDefault();
+    }
+
+    private static IReadOnlyList<Component> Clear(ICollection<ComponentHistoryItem> source)
+    {
+        var components = source.Select(item => item.Component).ToList();
+        source.Clear();
+        return components;
+    }
+
+    private static void AddResumeComponent(
+        Component? component,
+        ICollection<Component> result,
+        ISet<Component> seen)
+    {
+        if (component is not null && seen.Add(component))
+            result.Add(component);
+    }
+}
+
+internal sealed class ComponentHistoryItem
+{
+    public Type ParentComponentType { get; }
+    public Component Component { get; }
+    public DateTime Timestamp { get; }
+
+    public ComponentHistoryItem(Type parentComponentType, Component component, DateTime timestamp)
+    {
+        ParentComponentType = parentComponentType;
+        Component = component;
+        Timestamp = timestamp;
+    }
+}
