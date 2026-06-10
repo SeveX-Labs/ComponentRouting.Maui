@@ -27,8 +27,14 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
 
-      - name: Restore solution
-        run: dotnet restore ComponentRouting.Maui.sln
+      - name: Restore Android library
+        run: dotnet restore ComponentRouting.Maui/ComponentRouting.Maui.csproj -p:TargetFrameworks=net10.0-android
 
-      - name: Build library
+      - name: Build Android library
         run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-android -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
+
+      - name: Restore Android sample
+        run: dotnet restore SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -p:TargetFrameworks=net10.0-android
+
+      - name: Build Android sample
+        run: dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
