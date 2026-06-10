@@ -25,16 +25,18 @@ The library focuses on routing and composition rather than visual styling. Your 
 
 The package targets:
 
-- `net10.0`
+- `net10.0-android`
+- `net10.0-ios`
+- `net10.0-maccatalyst`
 
-ComponentRouting.Maui is designed for .NET MAUI applications. Android, iOS, and MacCatalyst apps can consume the `net10.0` assembly from their platform-specific targets because the library contains shared routing and presenter logic, not platform-specific handlers, resources, or implementations.
+Starting from version 2.0.0, ComponentRouting.Maui is packaged only for MAUI platform target frameworks. Plain `net10.0` consumers are no longer supported. Existing MAUI consumers should remain source-compatible, but projects must target a supported MAUI platform TFM.
 
 ## Installation
 
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 1.0.0
+dotnet add package ComponentRouting.Maui --version 2.0.0
 ```
 
 ## Basic Setup
@@ -227,7 +229,7 @@ The app creates an initial placeholder window page, then presents the root compo
 
 ```bash
 dotnet restore ComponentRouting.Maui.sln
-dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0 -c Release --no-restore
+dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-android -c Release --no-restore
 dotnet test ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj -c Release --no-restore
 dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Debug
 ```
@@ -244,10 +246,14 @@ dotnet pack ComponentRouting.Maui/ComponentRouting.Maui.csproj -c Release -o art
 
 This produces the package and symbol package:
 
-- `artifacts/ComponentRouting.Maui.1.0.0.nupkg`
-- `artifacts/ComponentRouting.Maui.1.0.0.snupkg`
+- `artifacts/ComponentRouting.Maui.2.0.0.nupkg`
+- `artifacts/ComponentRouting.Maui.2.0.0.snupkg`
 
 Publishing is intentionally manual or release-workflow driven. Do not commit NuGet API keys to the repository.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and compatibility changes.
 
 ## Current Limitations
 
