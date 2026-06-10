@@ -44,7 +44,7 @@ jobs:
         run: dotnet pack ComponentRouting.Maui/ComponentRouting.Maui.csproj -c Release -o artifacts --no-build
 
       - name: Verify package contents
-        run: scripts/verify-package-contents.sh artifacts/ComponentRouting.Maui.1.0.0.nupkg
+        run: scripts/verify-package-contents.sh artifacts/ComponentRouting.Maui.2.0.0.nupkg
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4

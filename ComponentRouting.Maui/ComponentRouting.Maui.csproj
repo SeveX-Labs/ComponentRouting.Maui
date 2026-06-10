@@ -11,8 +11,8 @@
     <RootNamespace>ComponentRouting.Maui</RootNamespace>
     <AssemblyName>ComponentRouting.Maui</AssemblyName>
     <PackageId>ComponentRouting.Maui</PackageId>
-    <Version>1.0.0</Version>
-    <PackageVersion>$(Version)</PackageVersion>
+    <Version>2.0.0</Version>
+    <PackageVersion>2.0.0</PackageVersion>
     <Title>ComponentRouting.Maui</Title>
     <Description>Component-based routing, navigation, presenters, overlays, snackbars, and dependency-injection helpers for .NET MAUI applications.</Description>
     <Authors>Alessandro Severa</Authors>
