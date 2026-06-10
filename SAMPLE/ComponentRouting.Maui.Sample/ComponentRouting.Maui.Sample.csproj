@@ -59,6 +59,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\..\ComponentRouting.Core\ComponentRouting.Core.csproj" />
 	  <ProjectReference Include="..\..\ComponentRouting.Maui\ComponentRouting.Maui.csproj" />
 	</ItemGroup>
 
