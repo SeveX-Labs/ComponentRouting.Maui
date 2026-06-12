@@ -8,7 +8,7 @@ fi
 
 package_path="$1"
 
-if [[ ! -f "$package_path" ]]; then
+if [[ -z "$package_path" || ! -f "$package_path" ]]; then
   echo "Package not found: $package_path" >&2
   exit 2
 fi

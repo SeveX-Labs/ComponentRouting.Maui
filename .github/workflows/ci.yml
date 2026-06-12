@@ -2,39 +2,47 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
-  build-test:
+  build:
     name: Build and test
-    runs-on: ubuntu-latest
+    runs-on: macos-15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
-
+          global-json-file: global.json
       - name: Restore tests
         run: dotnet restore ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj
-
       - name: Test
         run: dotnet test ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj -c Release --no-restore
-
-      - name: Install MAUI Android workload
-        run: dotnet workload install maui-android
-
-      - name: Restore Android library
-        run: dotnet restore ComponentRouting.Maui/ComponentRouting.Maui.csproj -p:TargetFrameworks=net10.0-android
-
+      - name: Install MAUI workloads
+        run: dotnet workload install maui --skip-manifest-update
+      - name: Restore library
+        run: dotnet restore ComponentRouting.Maui/ComponentRouting.Maui.csproj
       - name: Build Android library
         run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-android -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
-
-      - name: Restore Android sample
-        run: dotnet restore SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -p:TargetFrameworks=net10.0-android
-
+      - name: Build iOS library
+        run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-ios -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
+      - name: Build MacCatalyst library
+        run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-maccatalyst -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
+      - name: Restore sample
+        run: dotnet restore SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj
       - name: Build Android sample
         run: dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
+      - name: Pack
+        run: dotnet pack ComponentRouting.Maui/ComponentRouting.Maui.csproj -c Release -o artifacts --no-build -p:ContinuousIntegrationBuild=true
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/*
