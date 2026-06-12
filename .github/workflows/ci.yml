@@ -36,9 +36,9 @@ jobs:
       - name: Build MacCatalyst library
         run: dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-maccatalyst -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
       - name: Restore sample
-        run: dotnet restore SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj
+        run: dotnet restore SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -p:MauiVersion=10.0.20
       - name: Build Android sample
-        run: dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Release --no-restore -m:1 -v:n -p:UseSharedCompilation=false
+        run: dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Release --no-restore -p:MauiVersion=10.0.20 -m:1 -v:n -p:UseSharedCompilation=false
       - name: Pack
         run: dotnet pack ComponentRouting.Maui/ComponentRouting.Maui.csproj -c Release -o artifacts --no-build -p:ContinuousIntegrationBuild=true
       - name: Upload package artifacts
