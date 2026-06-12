@@ -17,3 +17,5 @@ TestResults/
 *.rsuser
 *.sln.docstates
 .codex-reference/
+Directory.Build.local.props
+Directory.Build.local.props.disabled

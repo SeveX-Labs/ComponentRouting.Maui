@@ -1,18 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!--
-      ComponentRouting.Maui intentionally targets MAUI platform TFMs only.
-      MAUI apps consume this assembly from their platform-specific targets.
-    -->
-    <TargetFrameworks>net10.0-ios;net10.0-android;net10.0-maccatalyst</TargetFrameworks>
+    <_IosTargetFramework Condition="'$(UseAsProjectReference)' == 'true' and '$(OverrideIosSpecificVersion)' != ''">net10.0-ios$(OverrideIosSpecificVersion)</_IosTargetFramework>
+		<_IosTargetFramework Condition="'$(_IosTargetFramework)' == ''">net10.0-ios</_IosTargetFramework>
+
+    <_MacCatalystTargetFramework Condition="'$(UseAsProjectReference)' == 'true' and '$(OverrideMacCatalystSpecificVersion)' != ''">net10.0-maccatalyst$(OverrideMacCatalystSpecificVersion)</_MacCatalystTargetFramework>
+		<_MacCatalystTargetFramework Condition="'$(_MacCatalystTargetFramework)' == ''">net10.0-maccatalyst</_MacCatalystTargetFramework>
+
+		<_AndroidTargetFramework Condition="'$(UseAsProjectReference)' == 'true' and '$(OverrideAndroidSpecificVersion)' != ''">net10.0-android$(OverrideAndroidSpecificVersion)</_AndroidTargetFramework>
+		<_AndroidTargetFramework Condition="'$(UseAsProjectReference)' == 'true' and '$(OverrideAndroidSpecificVersion)' == ''">net10.0-android36.0</_AndroidTargetFramework>
+		<_AndroidTargetFramework Condition="'$(_AndroidTargetFramework)' == ''">net10.0-android</_AndroidTargetFramework>
+
+		<TargetFrameworks>$(_IosTargetFramework);$(_AndroidTargetFramework);$(_MacCatalystTargetFramework)</TargetFrameworks>
+
     <UseMaui>True</UseMaui>
     <Nullable>enable</Nullable>
     <RootNamespace>ComponentRouting.Maui</RootNamespace>
     <AssemblyName>ComponentRouting.Maui</AssemblyName>
     <PackageId>ComponentRouting.Maui</PackageId>
-    <Version>2.0.0</Version>
-    <PackageVersion>2.0.0</PackageVersion>
+    <Version>2.0.1</Version>
+    <PackageVersion>2.0.1</PackageVersion>
     <Title>ComponentRouting.Maui</Title>
     <Description>Component-based routing, navigation, presenters, overlays, snackbars, and dependency-injection helpers for .NET MAUI applications.</Description>
     <Authors>Alessandro Severa</Authors>

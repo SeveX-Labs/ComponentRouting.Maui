@@ -1,5 +1,13 @@
 <Project>
-  <PropertyGroup>
+	<Import Project="$(MSBuildThisFileDirectory)Directory.Build.local.props"
+	        Condition="Exists('$(MSBuildThisFileDirectory)Directory.Build.local.props')" />
+
+	<PropertyGroup>
+		<UseAsProjectReference Condition="'$(UseAsProjectReference)' == ''">false</UseAsProjectReference>
+		<OverrideAndroidSpecificVersion Condition="'$(OverrideAndroidSpecificVersion)' == ''"></OverrideAndroidSpecificVersion>
+		<OverrideIosSpecificVersion Condition="'$(OverrideIosSpecificVersion)' == ''"></OverrideIosSpecificVersion>
+		<OverrideMacCatalystSpecificVersion Condition="'$(OverrideMacCatalystSpecificVersion)' == ''"></OverrideMacCatalystSpecificVersion>
+
     <MicrosoftExtensionsVersion>10.0.8</MicrosoftExtensionsVersion>
-  </PropertyGroup>
+	</PropertyGroup>
 </Project>
