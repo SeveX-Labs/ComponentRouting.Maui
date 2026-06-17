@@ -32,6 +32,7 @@ public sealed class SampleFlyoutHomeComponent : SampleFlyoutComponent<bool>
             StartWizard,
             ShowLoading,
             HideLoading,
+            CloseAllPopups,
             ShowSnackbar,
             CountSnackbars);
         page.SetFactoryStatus(ReferenceEquals(
@@ -54,7 +55,7 @@ public sealed class SampleFlyoutHomeComponent : SampleFlyoutComponent<bool>
 
     private Task ShowLoading()
     {
-        if (router.GetMountedComponents<LoadingPopupComponent>().Count == 0)
+        if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
                 new LoadingPopupComponent.ComponentState("Flyout loading popup", "Mounted lookup can hide this overlay."));
@@ -66,7 +67,15 @@ public sealed class SampleFlyoutHomeComponent : SampleFlyoutComponent<bool>
 
     private Task HideLoading()
     {
-        router.GetMountedComponent<LoadingPopupComponent>()?.Unpresent();
+        router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
+        UpdateMountedCounts();
+        return Task.CompletedTask;
+    }
+
+    private Task CloseAllPopups()
+    {
+        router.CloseAllPopups();
+        ((SampleFlyoutHomePage)Presenter!).SetLastResult("Closed all mounted popups.");
         UpdateMountedCounts();
         return Task.CompletedTask;
     }
@@ -81,12 +90,12 @@ public sealed class SampleFlyoutHomeComponent : SampleFlyoutComponent<bool>
 
     private Task CountSnackbars()
     {
-        var snackbars = router.GetMountedComponents<InfoSnackbarComponent>();
+        var snackbars = router.GetMountedOverlayComponents<InfoSnackbarComponent>();
         var message = $"Mounted snackbar count: {snackbars.Count}";
 
         try
         {
-            _ = router.GetMountedComponent<InfoSnackbarComponent>();
+            _ = router.GetMountedOverlayComponent<InfoSnackbarComponent>();
             message += ". Single mounted lookup did not throw.";
         }
         catch (InvalidOperationException ex)
@@ -102,7 +111,7 @@ public sealed class SampleFlyoutHomeComponent : SampleFlyoutComponent<bool>
     private void UpdateMountedCounts()
     {
         ((SampleFlyoutHomePage)Presenter!).SetMountedCounts(
-            router.GetMountedComponents<LoadingPopupComponent>().Count,
-            router.GetMountedComponents<InfoSnackbarComponent>().Count);
+            router.GetMountedOverlayComponents<LoadingPopupComponent>().Count,
+            router.GetMountedOverlayComponents<InfoSnackbarComponent>().Count);
     }
 }

@@ -3,20 +3,21 @@ using System.Runtime.CompilerServices;
 
 namespace ComponentRouting.Maui.Routing;
 
-internal sealed class ReferenceEqualityComparer : IEqualityComparer<Component>
+internal sealed class ReferenceEqualityComparer<TComponent> : IEqualityComparer<TComponent>
+    where TComponent: Component
 {
-    public static ReferenceEqualityComparer Instance { get; } = new();
+    public static ReferenceEqualityComparer<TComponent> Instance { get; } = new();
 
     private ReferenceEqualityComparer()
     {
     }
 
-    public bool Equals(Component? x, Component? y)
+    public bool Equals(TComponent? x, TComponent? y)
     {
         return ReferenceEquals(x, y);
     }
 
-    public int GetHashCode(Component obj)
+    public int GetHashCode(TComponent obj)
     {
         return RuntimeHelpers.GetHashCode(obj);
     }

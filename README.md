@@ -9,8 +9,9 @@ The library focuses on routing and composition rather than visual styling. Your 
 - Typed routing through `Router.PresentComponent<TComponent, TState, TResult>(state)`.
 - Component preloading through `Router.PreloadComponent<TComponent, TState, TResult>(state)`.
 - Push and modal dismissal through `Router.DismissComponent<TComponent, TState, TResult>(animated)`.
-- Mounted overlay and snackbar lookup through `GetMountedComponent<TComponent>()` and `GetMountedComponents<TComponent>()`.
-- Extensible routing through `AbstractRouter`, including `RootComponent` and `CanNavigateBack(...)`.
+- Mounted overlay and snackbar lookup through `GetMountedOverlayComponent<TComponent>()` and `GetMountedOverlayComponents<TComponent>()`.
+- Popup cleanup through `Router.CloseAllPopups()`.
+- Extensible routing through `AbstractRouter`, including protected `RootComponent` and `CanNavigateBack(...)`.
 - Component creation through `ComponentFactory.CreateComponent<T>()`.
 - Microsoft dependency injection registration and component scanning with `AddComponentRoutingMaui(...)`.
 - Built-in component base types for root, page, modal, push, overlay, snackbar, tab, and flyout flows.
@@ -31,13 +32,23 @@ The package targets:
 
 Starting from version 2.0.0, ComponentRouting.Maui is packaged only for MAUI platform target frameworks. Plain `net10.0` consumers are no longer supported. Existing MAUI consumers should remain source-compatible, but projects must target a supported MAUI platform TFM.
 
+Starting from version 3.0.0, mounted component lookup is explicitly scoped to overlays and snackbars. Replace `GetMountedComponent<TComponent>()` with `GetMountedOverlayComponent<TComponent>()`, and replace `GetMountedComponents<TComponent>()` with `GetMountedOverlayComponents<TComponent>()`. The generic component type must be an overlay component.
+
 ## Installation
 
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 2.0.1
+dotnet add package ComponentRouting.Maui --version 3.0.0
 ```
+
+## Breaking Changes In 3.0.0
+
+- `Router.GetMountedComponent<TComponent>()` was replaced by `Router.GetMountedOverlayComponent<TComponent>()`.
+- `Router.GetMountedComponents<TComponent>()` was replaced by `Router.GetMountedOverlayComponents<TComponent>()`.
+- Mounted lookup is now constrained to overlay components through the marker `Component` interface.
+- `GetMountedOverlayComponent<TComponent>()` returns the latest matching mounted overlay by default when multiple matches exist. Pass `throwIfMultiple: true` to preserve strict single-match behavior.
+- `AbstractRouter` exposes its routing state to subclasses instead of through the public `Router` interface. Router implementations should override `RootComponent` as `protected`.
 
 ## Basic Setup
 
@@ -81,9 +92,9 @@ public sealed class SampleRouter : AbstractRouter
         : base(componentFactory, catalogProvider, safeAreaInsetsService)
     {
     }
-    
-    public override RootComponent RootComponent =>
-        ComponentFactory.CreateComponent<SampleTabbedRootComponent>();
+
+    protected override RootComponent RootComponent =>
+        ComponentFactory.CreateComponent<SampleModeRootComponent>();
 
     protected override bool CanNavigateBack(Component component)
     {
@@ -170,7 +181,7 @@ The generic arguments keep the component state and result explicit at the call s
 - `PageComponent<TState, TResult>` replaces the current window page.
 - `ModalPageComponent<TState, TResult>` presents a modal MAUI page.
 - `PushableComponent<TState, TResult>` pushes a page onto the current navigation stack.
-- `OverlayComponent<TState, TResult>` mounts a MAUI layout over an `OverlayHost`.
+- `OverlayComponent<TState, TResult>` mounts a MAUI layout over an `OverlayHost` and implements the marker `Component` interface used by mounted overlay lookup.
 - `SnackbarComponent` is an overlay specialized for `SnackbarConfiguration`.
 - `TabComponent<TState>` represents a tab-bound component.
 - `FlyoutComponent<TState>` is supported by the router as a flyout-bound component type.
@@ -183,7 +194,7 @@ Overlays and snackbars are registered as transient components, so each presentat
 _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
     new LoadingPopupComponent.ComponentState("Loading popup", "Mounted lookup can hide this overlay."));
 
-router.GetMountedComponent<LoadingPopupComponent>()?.Unpresent();
+router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
 ```
 
 Snackbars use `SnackbarConfiguration`:
@@ -196,17 +207,25 @@ _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
 Mounted lookup searches the router's overlay and snackbar history:
 
 ```csharp
-var popup = router.GetMountedComponent<LoadingPopupComponent>();
-var snackbars = router.GetMountedComponents<InfoSnackbarComponent>();
+var popup = router.GetMountedOverlayComponent<LoadingPopupComponent>();
+var snackbars = router.GetMountedOverlayComponents<InfoSnackbarComponent>();
 ```
 
-`GetMountedComponent<TComponent>()` returns `null` when no mounted instance exists, returns the single match when exactly one is mounted, and throws `InvalidOperationException` when multiple matching instances exist. Use `GetMountedComponents<TComponent>()` when multiple overlays or snackbars can be present.
+`GetMountedOverlayComponent<TComponent>()` returns `null` when no mounted instance exists and returns the latest matching mounted overlay or snackbar by default. Pass `throwIfMultiple: true` to throw `InvalidOperationException` when multiple matching instances exist. Use `GetMountedOverlayComponents<TComponent>()` when multiple overlays or snackbars can be present.
+
+Close all mounted popup overlays without closing mounted snackbars:
+
+```csharp
+router.CloseAllPopups();
+```
+
+`CloseAllPopups()` is idempotent. Calling it when no popup overlays are mounted does nothing.
 
 ## Tabs And Flyout
 
-The sample app shows tab routing with a `RootComponent` that creates a tabbed root page and binds existing tab presenters to `TabComponent<TState>` instances through `ComponentFactory.CreateComponent<T>()`.
+The sample app starts with a mode root component that can open either a tabbed root flow or a flyout root flow. Tab routing binds existing tab presenters to `TabComponent<TState>` instances through `ComponentFactory.CreateComponent<T>()`.
 
-`FlyoutComponent<TState>` is also a supported router component type. This repository does not currently include a flyout sample.
+`FlyoutComponent<TState>` is also a supported router component type, and the sample includes flyout home, customers, and settings components.
 
 ## Sample App
 
@@ -214,11 +233,14 @@ The sample app is in `SAMPLE/ComponentRouting.Maui.Sample`.
 
 It demonstrates:
 
-- root and tabbed navigation through `SampleTabbedRootComponent`;
+- root mode selection through `SampleModeRootComponent`;
+- tabbed navigation through `SampleTabbedRootComponent`;
+- flyout navigation through `SampleFlyoutRootComponent`;
 - page routing with `LoginComponent`;
 - modal routing with `DetailsComponent`;
 - pushable wizard flow with `WizardStepComponent` and `WizardConfirmComponent`;
 - overlay presentation with `LoadingPopupComponent`;
+- closing mounted popup overlays with `CloseAllPopups()`;
 - snackbar presentation with `InfoSnackbarComponent`;
 - mounted overlay and snackbar lookup;
 - DI registration through `AddComponentRoutingMaui(...)`, `SampleRouter`, `CatalogProvider`, and `SafeAreaInsetsService`.
@@ -391,7 +413,7 @@ mv Directory.Build.local.props.disabled Directory.Build.local.props
 To inspect the generated package contents:
 
 ```bash
-unzip -l ./local-nuget/ComponentRouting.Maui.2.0.1.nupkg | grep "lib/"
+unzip -l ./local-nuget/ComponentRouting.Maui.3.0.0.nupkg | grep "lib/"
 ```
 
 With .NET MAUI/.NET 10, it is normal for the generated `.nupkg` to contain platform-normalized asset folders such as:

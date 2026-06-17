@@ -5,15 +5,13 @@ namespace ComponentRouting.Maui;
 
 public interface Router
 {
-    Component? CurrentTabComponent { get; }
-    Component? MountedComponent { get; }
-    List<Component> ComponentsStack { get; }
-    
-    TComponent? GetMountedComponent<TComponent>()
+    TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component;
 
-    IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
+    IReadOnlyList<TComponent> GetMountedOverlayComponents<TComponent>()
         where TComponent : Component;
+
+    void CloseAllPopups();
 
     public Task PreloadComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>;
@@ -29,7 +27,7 @@ public interface Router
         where TComponent : RoutableComponent<TState, TResult>;
 
     void DispatchResume();
-    
+
     Task DispatchSleep();
 
     Task DispatchDestroy();

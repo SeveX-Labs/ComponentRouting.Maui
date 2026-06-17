@@ -42,7 +42,7 @@ internal sealed class ComponentHistory
         return GetLatestItem(popups, parentComponentType);
     }
 
-    public IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
+    public IReadOnlyList<TComponent> GetMountedOverlayComponents<TComponent>()
         where TComponent : Component
     {
         var result = new List<TComponent>();
@@ -57,10 +57,13 @@ internal sealed class ComponentHistory
         return result;
     }
 
-    public TComponent? GetMountedComponent<TComponent>()
+    public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component
     {
-        var components = GetMountedComponents<TComponent>();
+        if (!throwIfMultiple)
+            return GetMountedOverlayComponents<TComponent>().LastOrDefault();
+
+        var components = GetMountedOverlayComponents<TComponent>();
 
         if (components.Count == 0)
             return default;
@@ -69,7 +72,22 @@ internal sealed class ComponentHistory
             return components[0];
 
         throw new InvalidOperationException(
-            $"Multiple mounted {typeof(TComponent).Name} instances were found. Use {nameof(Router.GetMountedComponents)}<{typeof(TComponent).Name}>() instead.");
+            $"Multiple mounted {typeof(TComponent).Name} instances were found. Use {nameof(Router.GetMountedOverlayComponents)}<{typeof(TComponent).Name}>() instead.");
+
+    }
+
+    public void CloseAllPopups()
+    {
+        CloseAllPopups(component => component.Unpresent());
+    }
+
+    public void CloseAllPopups(Action<Component> closePopup)
+    {
+        foreach (var item in popups.AsEnumerable().Reverse().ToList())
+        {
+            closePopup(item.Component);
+            popups.Remove(item);
+        }
     }
 
     public void DismissMostRecent(ComponentHistoryItem? snackbarItem, ComponentHistoryItem? popupItem, ComponentHistoryItem? panelItem = null)

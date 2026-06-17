@@ -63,7 +63,7 @@ public class ComponentHistoryTests
         history.AddSnackbar(typeof(HostComponent), snackbar, DateTime.Now);
         history.AddPopup(typeof(HostComponent), snackbar, DateTime.Now);
 
-        var mounted = history.GetMountedComponents<Component>();
+        var mounted = history.GetMountedOverlayComponents<Component>();
 
         Assert.Equal(2, mounted.Count);
         Assert.Contains(popup, mounted);
@@ -75,7 +75,7 @@ public class ComponentHistoryTests
     {
         var history = new ComponentHistory();
 
-        Assert.Null(history.GetMountedComponent<TestComponent>());
+        Assert.Null(history.GetMountedOverlayComponent<TestComponent>());
     }
 
     [Fact]
@@ -85,19 +85,83 @@ public class ComponentHistoryTests
         var popup = new TestComponent();
         history.AddPopup(typeof(HostComponent), popup, DateTime.Now);
 
-        Assert.Same(popup, history.GetMountedComponent<TestComponent>());
+        Assert.Same(popup, history.GetMountedOverlayComponent<TestComponent>());
     }
 
     [Fact]
-    public void GetMountedComponent_throws_when_multiple_matches_exist()
+    public void GetMountedOverlayComponent_throws_when_multiple_matches_exist_and_strict_lookup_is_requested()
     {
         var history = new ComponentHistory();
         history.AddPopup(typeof(HostComponent), new TestComponent(), DateTime.Now);
         history.AddPopup(typeof(HostComponent), new TestComponent(), DateTime.Now);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => history.GetMountedComponent<TestComponent>());
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            history.GetMountedOverlayComponent<TestComponent>(throwIfMultiple: true));
 
-        Assert.Contains(nameof(Router.GetMountedComponents), ex.Message);
+        Assert.Contains(nameof(Router.GetMountedOverlayComponents), ex.Message);
+    }
+
+    [Fact]
+    public void CloseAllPopups_does_not_fail_when_no_popups_are_mounted()
+    {
+        var history = new ComponentHistory();
+
+        history.CloseAllPopups();
+
+        Assert.Empty(history.Popups);
+    }
+
+    [Fact]
+    public void CloseAllPopups_unpresents_single_popup_and_removes_it_from_history()
+    {
+        var history = new ComponentHistory();
+        var popup = new CountingComponent();
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now);
+
+        history.CloseAllPopups();
+
+        Assert.Equal(1, popup.UnpresentCount);
+        Assert.Empty(history.Popups);
+    }
+
+    [Fact]
+    public void CloseAllPopups_unpresents_multiple_popups_in_lifo_order()
+    {
+        var history = new ComponentHistory();
+        var closeOrder = new List<string>();
+        var first = new OrderedCountingComponent("first", closeOrder);
+        var second = new OrderedCountingComponent("second", closeOrder);
+        var third = new OrderedCountingComponent("third", closeOrder);
+
+        history.AddPopup(typeof(HostComponent), first, new DateTime(2026, 1, 1));
+        history.AddPopup(typeof(HostComponent), second, new DateTime(2026, 1, 2));
+        history.AddPopup(typeof(HostComponent), third, new DateTime(2026, 1, 3));
+
+        history.CloseAllPopups();
+
+        Assert.Equal(new[] { "third", "second", "first" }, closeOrder);
+        Assert.Equal(1, first.UnpresentCount);
+        Assert.Equal(1, second.UnpresentCount);
+        Assert.Equal(1, third.UnpresentCount);
+        Assert.Empty(history.Popups);
+    }
+
+    [Fact]
+    public void CloseAllPopups_leaves_snackbars_mounted()
+    {
+        var history = new ComponentHistory();
+        var popup = new CountingComponent();
+        var snackbar = new CountingComponent();
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now);
+        history.AddSnackbar(typeof(HostComponent), snackbar, DateTime.Now);
+
+        history.CloseAllPopups();
+
+        Assert.Equal(1, popup.UnpresentCount);
+        Assert.Equal(0, snackbar.UnpresentCount);
+        Assert.Empty(history.Popups);
+        var item = Assert.Single(history.Snackbars);
+        Assert.Same(snackbar, item.Component);
     }
 
     [Fact]

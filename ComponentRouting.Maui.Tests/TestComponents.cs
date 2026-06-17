@@ -26,6 +26,27 @@ public sealed class CountingComponent : TestComponent
     }
 }
 
+public sealed class OrderedCountingComponent : TestComponent
+{
+    private readonly IList<string> closeOrder;
+    private readonly string name;
+
+    public OrderedCountingComponent(string name, IList<string> closeOrder)
+    {
+        this.name = name;
+        this.closeOrder = closeOrder;
+    }
+
+    public int UnpresentCount { get; private set; }
+
+    public override bool Unpresent()
+    {
+        UnpresentCount++;
+        closeOrder.Add(name);
+        return base.Unpresent();
+    }
+}
+
 public sealed class HostComponent : TestComponent
 {
 }
@@ -61,11 +82,13 @@ public sealed class TestRouter : Router
     public Component? MountedComponent => null;
     public List<Component> ComponentsStack { get; } = new();
 
-    public TComponent? GetMountedComponent<TComponent>()
+    public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component => default;
 
-    public IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
+    public IReadOnlyList<TComponent> GetMountedOverlayComponents<TComponent>()
         where TComponent : Component => Array.Empty<TComponent>();
+
+    public void CloseAllPopups() { }
 
     public Task PreloadComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult> => Task.CompletedTask;

@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0
+
+### Breaking Changes
+
+- Replaced `Router.GetMountedComponent<TComponent>()` with `Router.GetMountedOverlayComponent<TComponent>()`.
+- Replaced `Router.GetMountedComponents<TComponent>()` with `Router.GetMountedOverlayComponents<TComponent>()`.
+- Mounted lookup is now constrained to overlay components through the marker `OverlayComponent` interface.
+- `AbstractRouter` exposes its routing state to subclasses instead of through the public `Router` interface.
+
+### Added
+
+- Added `Router.CloseAllPopups()` to close all mounted popup overlays without closing mounted snackbars.
+
 ## 2.0.0
 
 ### Breaking Changes

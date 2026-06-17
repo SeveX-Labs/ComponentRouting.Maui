@@ -23,12 +23,12 @@ public abstract class AbstractRouter : Router
 {
     #region auto-properties
 
-    public Component? CurrentTabComponent { get; private set; }
-    public Component? CurrentFlyoutComponent { get; private set; }
-    public Component? MountedComponent { get; private set; }
-    public List<Component> ComponentsStack { get; private set; }
+    protected Component? CurrentTabComponent { get; private set; }
+    protected Component? CurrentFlyoutComponent { get; private set; }
+    protected Component? MountedComponent { get; private set; }
+    protected List<Component> ComponentsStack { get; private set; }
 
-    public abstract RootComponent RootComponent { get; }
+    protected abstract RootComponent RootComponent { get; }
 
     protected ComponentFactory ComponentFactory { get; }
     private CatalogProvider CatalogProvider { get; }
@@ -86,7 +86,7 @@ public abstract class AbstractRouter : Router
         var didPresent = await MainThread.InvokeOnMainThreadAsync(async () => await PresentComponent(component, input));
         if (!didPresent)
             throw new RouterException(RouterError.ComponentPresentationFailed, component);
-	
+
         try
         {
             var result = await component.Present();
@@ -104,16 +104,21 @@ public abstract class AbstractRouter : Router
         }
     }
 
-    public TComponent? GetMountedComponent<TComponent>()
+    public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component
     {
-        return History.GetMountedComponent<TComponent>();
+        return History.GetMountedOverlayComponent<TComponent>(throwIfMultiple);
     }
 
-    public IReadOnlyList<TComponent> GetMountedComponents<TComponent>()
+    public IReadOnlyList<TComponent> GetMountedOverlayComponents<TComponent>()
         where TComponent : Component
     {
-        return History.GetMountedComponents<TComponent>();
+        return History.GetMountedOverlayComponents<TComponent>();
+    }
+
+    public void CloseAllPopups()
+    {
+        History.CloseAllPopups(ClosePopupComponent);
     }
 
     public virtual async Task DismissComponent<TComponent, TState, TResult>(bool animated = true)
@@ -136,7 +141,7 @@ public abstract class AbstractRouter : Router
             throw new RouterException(RouterError.ComponentDismissalNotSupported, component);
         }
     }
-    
+
     public async Task DispatchSleep()
     {
         await DispatchLifecycleEvent(component => component.HandleAppSleepAsync());
@@ -401,6 +406,9 @@ public abstract class AbstractRouter : Router
         return await component.Present();
     }
 
+    public Component? GetCurrentTabComponent() => CurrentTabComponent;
+    public Component? GetCurrentFlyoutComponent() => CurrentFlyoutComponent;
+
     #endregion
 
     #region helper methods
@@ -444,6 +452,12 @@ public abstract class AbstractRouter : Router
     private void DismissMostRecentHistoryItem(ComponentHistoryItem? snackbarItem, ComponentHistoryItem? popupItem, ComponentHistoryItem? panelItem)
     {
         History.DismissMostRecent(snackbarItem, popupItem, panelItem);
+    }
+
+    private void ClosePopupComponent(Component component)
+    {
+        component.Unpresent();
+        DismissOverlayComponent(component);
     }
 
     private async Task PushComponentInternal(Component component)
@@ -561,6 +575,7 @@ public abstract class AbstractRouter : Router
         }
 
         // Android 11+ can report top insets that affect snackbar placement.
+        /*
         if (component is SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter }
             && DeviceInfo.Platform == DevicePlatform.Android
             && DeviceInfo.Version.Major >= 11)
@@ -568,6 +583,7 @@ public abstract class AbstractRouter : Router
             var insets = SafeAreaInsetsService.GetSafeAreaInsets();
             if (insets.Top > 0) snackbarPresenter.TranslationY = insets.Top;
         }
+        */
 
         if (component is SnackbarComponent) History.AddSnackbar(parentComponent.GetType(), component);
         else History.AddPopup(parentComponent.GetType(), component);
@@ -742,7 +758,7 @@ public abstract class AbstractRouter : Router
 
         return navigation;
     }
-    
+
     private IList<AppLifecycleAwareComponent> GetLifecycleAwareComponents()
     {
         var result = new List<AppLifecycleAwareComponent>();

@@ -17,6 +17,7 @@
                 <Button Text="Start Wizard" Clicked="HandleStartWizardClicked" />
                 <Button Text="Show Loading Popup" Clicked="HandleShowLoadingClicked" />
                 <Button Text="Hide Loading Popup" Clicked="HandleHideLoadingClicked" />
+                <Button Text="Close All Popups" Clicked="HandleCloseAllPopupsClicked" />
                 <Button Text="Show Snackbar" Clicked="HandleShowSnackbarClicked" />
                 <Button Text="Count Mounted Snackbars" Clicked="HandleCountSnackbarsClicked" />
                 <Border Padding="12" StrokeThickness="1">

@@ -15,8 +15,8 @@ public sealed class SampleRouter : AbstractRouter
         : base(componentFactory, catalogProvider, safeAreaInsetsService)
     {
     }
-    
-    public override RootComponent RootComponent =>
+
+    protected override RootComponent RootComponent =>
         ComponentFactory.CreateComponent<SampleModeRootComponent>();
 
     protected override bool CanNavigateBack(Component component)
