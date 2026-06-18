@@ -19,6 +19,13 @@
                     Clicked="HandleTabbedRootClicked" />
             <Button Text="Flyout root"
                     Clicked="HandleFlyoutRootClicked" />
+            <Button Text="Open normal modal"
+                    Clicked="HandleOpenNormalModalClicked" />
+            <Button Text="Open fullscreen modal"
+                    Clicked="HandleOpenFullscreenModalClicked" />
+            <Label x:Name="LastResultLabel"
+                   FontSize="14"
+                   HorizontalTextAlignment="Center" />
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

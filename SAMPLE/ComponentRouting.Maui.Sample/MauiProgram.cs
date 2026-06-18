@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using ComponentRouting.Maui;
+using ComponentRouting.Maui.Chrome;
 using ComponentRouting.Maui.Ioc;
 using ComponentRouting.Maui.Provider.Core;
 using ComponentRouting.Maui.Sample.Routing;
@@ -23,7 +24,46 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
 
-		builder.Services.AddComponentRoutingMaui(typeof(SampleRouter).Assembly);
+		builder.Services
+			.AddComponentRoutingMaui(
+				new[] { typeof(SampleRouter).Assembly },
+				configureChrome: chrome =>
+				{
+					var normalChromeColor = Color.FromArgb("#334155");
+					var normalChrome = new ComponentChromeOptions
+					{
+						StatusBarBackgroundColor = normalChromeColor,
+						NavigationBarBackgroundColor = normalChromeColor,
+						ActionBarBackgroundColor = normalChromeColor,
+						WindowBackgroundColor = normalChromeColor,
+						StatusBarForeground = ChromeForeground.LightContent,
+						NavigationBarForeground = ChromeForeground.LightContent,
+						ActionBarTextColor = Colors.White,
+						EdgeToEdge = false,
+						DecorFitsSystemWindows = true,
+						DisplayCutoutMode = ComponentDisplayCutoutMode.Default
+					};
+
+					chrome.GlobalDefaults = normalChrome;
+					chrome.PageDefaults = normalChrome;
+					chrome.PushableDefaults = normalChrome;
+					chrome.ModalDefaults = normalChrome;
+					chrome.FullscreenModalDefaults = new ComponentChromeOptions
+					{
+						StatusBarBackgroundColor = Colors.Transparent,
+						NavigationBarBackgroundColor = Colors.Transparent,
+						WindowBackgroundColor = Colors.Transparent,
+						StatusBarForeground = ChromeForeground.LightContent,
+						NavigationBarForeground = ChromeForeground.LightContent,
+						ActionBarTextColor = Colors.White,
+						EdgeToEdge = true,
+						DecorFitsSystemWindows = false,
+						DisplayCutoutMode = ComponentDisplayCutoutMode.Always,
+						StatusBarContrastEnforced = false,
+						NavigationBarContrastEnforced = false
+					};
+				})
+			.AddComponentRoutingMauiPlatformChrome();
 		builder.Services.AddSingleton<SampleRouter>();
 		builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
 		builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();

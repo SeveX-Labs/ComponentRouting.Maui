@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ComponentRouting.Maui.Sample.Presenters.Modals.FullscreenChromeDemoPage"
+             BackgroundColor="#111827">
+    <Grid Padding="24"
+          RowDefinitions="*,Auto,*">
+        <VerticalStackLayout Grid.Row="1"
+                             Spacing="16">
+            <Label x:Name="TitleLabel"
+                   TextColor="White"
+                   FontSize="32"
+                   FontAttributes="Bold" />
+            <Label x:Name="MessageLabel"
+                   TextColor="#CBD5E1"
+                   LineBreakMode="WordWrap" />
+            <Button Text="Close fullscreen modal"
+                    Clicked="HandleCloseClicked" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
