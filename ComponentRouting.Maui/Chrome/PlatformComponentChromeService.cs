@@ -52,15 +52,17 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
             return;
         }
 
+        if (context.PresentationKind is ComponentPresentationKind.Modal or ComponentPresentationKind.FullscreenModal)
+        {
+            foreach (var candidate in discovery.FindModalDialogWindows(context.Component, context.MountablePage))
+                applier.Apply(candidate.Window, context.Options);
+
+            return;
+        }
+
         var activityWindow = Platform.CurrentActivity?.Window;
         if (activityWindow is not null)
             applier.Apply(activityWindow, context.Options);
-
-        if (context.PresentationKind is not (ComponentPresentationKind.Modal or ComponentPresentationKind.FullscreenModal))
-            return;
-
-        foreach (var candidate in discovery.FindModalDialogWindows(context.Component, context.MountablePage))
-            applier.Apply(candidate.Window, context.Options);
     }
 
     private void RegisterAndroidLifecycle(ComponentChromeContext context)
