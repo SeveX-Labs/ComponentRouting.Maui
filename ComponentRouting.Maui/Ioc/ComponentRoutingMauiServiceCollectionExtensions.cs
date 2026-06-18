@@ -39,6 +39,16 @@ public static class ComponentRoutingMauiServiceCollectionExtensions
             componentType => IsOverlayOrSnackbar(componentType) ? ServiceLifetime.Transient : null);
     }
 
+    public static IServiceCollection AddComponentRoutingMauiPlatformChrome(this IServiceCollection services)
+    {
+#if ANDROID
+        services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
+        services.TryAddSingleton<AndroidWindowChromeApplier>();
+#endif
+        services.Replace(ServiceDescriptor.Singleton<ComponentChromeService, PlatformComponentChromeService>());
+        return services;
+    }
+
     private static bool IsOverlayOrSnackbar(Type type)
     {
         return typeof(SnackbarComponent).IsAssignableFrom(type) ||
