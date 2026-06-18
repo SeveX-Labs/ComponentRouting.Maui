@@ -27,6 +27,10 @@ public static class ComponentRoutingMauiServiceCollectionExtensions
         services.TryAddSingleton(chromeConfiguration);
         services.TryAddSingleton<ComponentChromeOptionsResolver>();
         services.TryAddSingleton<ComponentChromeService, NoOpComponentChromeService>();
+#if ANDROID
+        services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
+        services.TryAddSingleton<AndroidWindowChromeApplier>();
+#endif
 
         return ComponentRoutingCoreRegistrar.AddComponentRoutingCore(
             services,

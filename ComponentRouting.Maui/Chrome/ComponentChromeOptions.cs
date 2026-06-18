@@ -13,7 +13,14 @@ public sealed class ComponentChromeOptions
     public Color? ActionBarBackgroundColor { get; init; }
     public Color? ActionBarTextColor { get; init; }
 
+    public Color? WindowBackgroundColor { get; init; }
     public bool? EdgeToEdge { get; init; }
+    public bool? DecorFitsSystemWindows { get; init; }
+
+    public ComponentDisplayCutoutMode? DisplayCutoutMode { get; init; }
+
+    public bool? StatusBarContrastEnforced { get; init; }
+    public bool? NavigationBarContrastEnforced { get; init; }
 
     public ComponentChromeOptions Merge(ComponentChromeOptions? higherPriority)
     {
@@ -28,7 +35,12 @@ public sealed class ComponentChromeOptions
             NavigationBarForeground = higherPriority.NavigationBarForeground ?? NavigationBarForeground,
             ActionBarBackgroundColor = higherPriority.ActionBarBackgroundColor ?? ActionBarBackgroundColor,
             ActionBarTextColor = higherPriority.ActionBarTextColor ?? ActionBarTextColor,
-            EdgeToEdge = higherPriority.EdgeToEdge ?? EdgeToEdge
+            WindowBackgroundColor = higherPriority.WindowBackgroundColor ?? WindowBackgroundColor,
+            EdgeToEdge = higherPriority.EdgeToEdge ?? EdgeToEdge,
+            DecorFitsSystemWindows = higherPriority.DecorFitsSystemWindows ?? DecorFitsSystemWindows,
+            DisplayCutoutMode = higherPriority.DisplayCutoutMode ?? DisplayCutoutMode,
+            StatusBarContrastEnforced = higherPriority.StatusBarContrastEnforced ?? StatusBarContrastEnforced,
+            NavigationBarContrastEnforced = higherPriority.NavigationBarContrastEnforced ?? NavigationBarContrastEnforced
         };
     }
 }
