@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using ComponentRouting.Maui.Abstraction;
+using ComponentRouting.Maui.Chrome;
 
 namespace ComponentRouting.Maui.Ioc;
 
@@ -16,8 +18,16 @@ public static class ComponentRoutingMauiServiceCollectionExtensions
     public static IServiceCollection AddComponentRoutingMaui(
         this IServiceCollection services,
         IEnumerable<Assembly>? assemblies = null,
-        IEnumerable<string>? additionalManifestScopeNamePrefixes = null)
+        IEnumerable<string>? additionalManifestScopeNamePrefixes = null,
+        Action<ComponentChromeConfiguration>? configureChrome = null)
     {
+        var chromeConfiguration = new ComponentChromeConfiguration();
+        configureChrome?.Invoke(chromeConfiguration);
+
+        services.TryAddSingleton(chromeConfiguration);
+        services.TryAddSingleton<ComponentChromeOptionsResolver>();
+        services.TryAddSingleton<ComponentChromeService, NoOpComponentChromeService>();
+
         return ComponentRoutingCoreRegistrar.AddComponentRoutingCore(
             services,
             assemblies,

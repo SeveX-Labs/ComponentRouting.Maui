@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using ComponentRouting.Maui.Abstraction;
 using ComponentRouting.Maui.Abstraction.Core;
+using ComponentRouting.Maui.Chrome;
 using ComponentRouting.Maui.Exceptions;
 using ComponentRouting.Maui.Extension;
 using ComponentRouting.Maui.Model.Core;
@@ -33,6 +34,8 @@ public abstract class AbstractRouter : Router
     protected ComponentFactory ComponentFactory { get; }
     private CatalogProvider CatalogProvider { get; }
     protected SafeAreaInsetsService SafeAreaInsetsService { get; }
+    private ComponentChromeService? ChromeService { get; }
+    private ComponentChromeOptionsResolver? ChromeOptionsResolver { get; }
 
     protected View SafeAreaBottomPatch { get; set; }
 
@@ -44,10 +47,22 @@ public abstract class AbstractRouter : Router
     #region ctor(s)
 
     protected AbstractRouter(ComponentFactory componentFactory, CatalogProvider catalogProvider, SafeAreaInsetsService safeAreaInsetsService)
+        : this(componentFactory, catalogProvider, safeAreaInsetsService, null, null)
+    {
+    }
+
+    protected AbstractRouter(
+        ComponentFactory componentFactory,
+        CatalogProvider catalogProvider,
+        SafeAreaInsetsService safeAreaInsetsService,
+        ComponentChromeService? chromeService,
+        ComponentChromeOptionsResolver? chromeOptionsResolver)
     {
         ComponentFactory = componentFactory;
         CatalogProvider = catalogProvider;
         SafeAreaInsetsService = safeAreaInsetsService;
+        ChromeService = chromeService;
+        ChromeOptionsResolver = chromeOptionsResolver;
 
         ComponentsStack = new List<Component>();
         History = new ComponentHistory();
@@ -59,6 +74,20 @@ public abstract class AbstractRouter : Router
     #region abstract methods
 
     protected abstract bool CanNavigateBack(Component component);
+
+    protected virtual ComponentPresentationKind GetPresentationKind(Component component)
+    {
+        if (component.IsSubclassOfRawGeneric(typeof(FullscreenModalPageComponent<,>)))
+            return ComponentPresentationKind.FullscreenModal;
+
+        if (component.IsSubclassOfRawGeneric(typeof(ModalPageComponent<,>)))
+            return ComponentPresentationKind.Modal;
+
+        if (component.IsSubclassOfRawGeneric(typeof(PushableComponent<,>)))
+            return ComponentPresentationKind.Pushable;
+
+        return ComponentPresentationKind.Page;
+    }
 
     #endregion
 
@@ -263,6 +292,10 @@ public abstract class AbstractRouter : Router
         EnsureApplication(component);
 
         bool didPresent = false;
+        var presentationKind = GetPresentationKind(component);
+
+        RegisterComponentChromeLifecycle("BeforePresentComponent", component, presentationKind);
+        ApplyComponentChrome("BeforePresentComponent", component, presentationKind);
 
         if (component is RootComponent rootComponent)
         {
@@ -275,6 +308,7 @@ public abstract class AbstractRouter : Router
                     {
                         navigationPage = CreateNavigationPage(rootPage);
                         rootComponent.Navigation = navigationPage;
+                        ApplyComponentChrome("AfterCreateRootNavigationPage", component, presentationKind, navigationPage);
                         Application.Current!.Windows[0].Page = navigationPage;
                     }
                     else
@@ -338,6 +372,7 @@ public abstract class AbstractRouter : Router
                 {
                     navigationPage = CreateNavigationPage(page);
                     navigationComponent.Navigation = navigationPage;
+                    ApplyComponentChrome("AfterCreateNavigationPage", component, presentationKind, navigationPage);
                 }
 
                 Application.Current!.Windows[0].Page = navigationPage;
@@ -351,6 +386,12 @@ public abstract class AbstractRouter : Router
             CurrentTabComponent = null;
             CurrentFlyoutComponent = null;
             didPresent = true;
+        }
+
+        if (didPresent)
+        {
+            RegisterComponentChromeLifecycle("AfterPresentComponent", component, presentationKind);
+            ApplyComponentChrome("AfterPresentComponent", component, presentationKind);
         }
 
         return didPresent;
@@ -463,6 +504,7 @@ public abstract class AbstractRouter : Router
     private async Task PushComponentInternal(Component component)
     {
         EnsureApplication(component);
+        var presentationKind = GetPresentationKind(component);
 
         var window = Application.Current!.Windows.First();
 
@@ -477,12 +519,18 @@ public abstract class AbstractRouter : Router
         if (component.Presenter is not Page page)
             throw new RouterException(RouterError.PresenterIsNotPage, component);
 
+        ApplyComponentChrome("BeforePushAsync", component, presentationKind, page, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushAsync(page));
+        ApplyComponentChrome("AfterPushAsync", component, presentationKind, page, navigation);
     }
 
     private async Task PushModalComponentInternal(Component component)
     {
         EnsureApplication(component);
+        var presentationKind = GetPresentationKind(component);
+
+        LogModalChromeDiagnostics("BeforePushModalInternal", component, null, null);
+        ApplyComponentChrome("BeforePushModalInternal", component, presentationKind);
 
         var mountablePage = component.Presenter as Page;
         if (mountablePage is null)
@@ -490,7 +538,12 @@ public abstract class AbstractRouter : Router
 
         if (component is NavigationComponent navigationComponent)
         {
-            navigationComponent.Navigation ??= CreateNavigationPage(mountablePage);
+            if (navigationComponent.Navigation is null)
+            {
+                navigationComponent.Navigation = CreateNavigationPage(mountablePage);
+                LogModalChromeDiagnostics("AfterCreateNavigationPage", component, navigationComponent.Navigation, null);
+                ApplyComponentChrome("AfterCreateModalNavigationPage", component, presentationKind, navigationComponent.Navigation);
+            }
             mountablePage = navigationComponent.Navigation;
         }
 
@@ -498,7 +551,131 @@ public abstract class AbstractRouter : Router
         if (navigation is null)
             throw new RouterException(RouterError.NavigationNotAvailable, component);
 
+        LogModalChromeDiagnostics("BeforePushModalAsync", component, mountablePage, navigation);
+        ApplyComponentChrome("BeforePushModalAsync", component, presentationKind, mountablePage, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushModalAsync(mountablePage));
+        LogModalChromeDiagnostics("AfterPushModalAsync", component, mountablePage, navigation);
+        RegisterComponentChromeLifecycle("AfterPushModalAsync", component, presentationKind, mountablePage, navigation);
+        ApplyComponentChrome("AfterPushModalAsync", component, presentationKind, mountablePage, navigation);
+    }
+
+    private ComponentChromeOptions ResolveChromeOptions(Component component, ComponentPresentationKind presentationKind)
+    {
+        return ChromeOptionsResolver?.Resolve(component, presentationKind) ?? new ComponentChromeOptions();
+    }
+
+    private void ApplyComponentChrome(
+        string source,
+        Component component,
+        ComponentPresentationKind presentationKind,
+        Page? mountablePage = null,
+        INavigation? navigation = null)
+    {
+        if (ChromeService is null)
+            return;
+
+        try
+        {
+            ChromeService.Apply(new ComponentChromeContext(
+                source,
+                component,
+                presentationKind,
+                ResolveChromeOptions(component, presentationKind),
+                mountablePage,
+                navigation));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+    }
+
+    private void RegisterComponentChromeLifecycle(
+        string source,
+        Component component,
+        ComponentPresentationKind presentationKind,
+        Page? mountablePage = null,
+        INavigation? navigation = null)
+    {
+        if (ChromeService is null)
+            return;
+
+        try
+        {
+            ChromeService.RegisterLifecycle(new ComponentChromeContext(
+                source,
+                component,
+                presentationKind,
+                ResolveChromeOptions(component, presentationKind),
+                mountablePage,
+                navigation));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private static void LogModalChromeDiagnostics(
+        string source,
+        Component component,
+        Page? mountablePage,
+        INavigation? navigation)
+    {
+        try
+        {
+            var presenterPage = component.Presenter as Page;
+            var navigationPage = component is NavigationComponent navigationComponent
+                ? navigationComponent.Navigation
+                : mountablePage as NavigationPage;
+
+            WriteModalChromeDiagnostics(
+                $"source=AbstractRouter.Modal.{source} " +
+                $"component={component.GetType().FullName} " +
+                $"presenter={component.Presenter?.GetType().FullName ?? "null"} " +
+                $"presenterHash={presenterPage?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"presenterHandler={presenterPage?.Handler?.GetType().FullName ?? "null"} " +
+                $"presenterPlatformView={presenterPage?.Handler?.PlatformView?.GetType().FullName ?? "null"} " +
+                $"presenterWindowHash={presenterPage?.Window?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"mountablePage={mountablePage?.GetType().FullName ?? "null"} " +
+                $"mountableHash={mountablePage?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"mountableHandler={mountablePage?.Handler?.GetType().FullName ?? "null"} " +
+                $"mountablePlatformView={mountablePage?.Handler?.PlatformView?.GetType().FullName ?? "null"} " +
+                $"mountableWindowHash={mountablePage?.Window?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"navigationPageHash={navigationPage?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"navigationPageRoot={navigationPage?.RootPage?.GetType().FullName ?? "null"} " +
+                $"navigationPageHandler={navigationPage?.Handler?.GetType().FullName ?? "null"} " +
+                $"navigationPagePlatformView={navigationPage?.Handler?.PlatformView?.GetType().FullName ?? "null"} " +
+                $"navigationPageWindowHash={navigationPage?.Window?.GetHashCode().ToString("X8") ?? "null"} " +
+                $"navigationPageBarBackground={MauiColorDescription(navigationPage?.BarBackgroundColor)} " +
+                $"navigationPageBackground={navigationPage?.Background?.GetType().FullName ?? "null"} " +
+                $"navigationNull={navigation is null} " +
+                $"navigationModalStackCount={navigation?.ModalStack.Count.ToString() ?? "null"} " +
+                $"navigationStackCount={navigation?.NavigationStack.Count.ToString() ?? "null"}");
+        }
+        catch (Exception ex)
+        {
+            WriteModalChromeDiagnostics($"source=AbstractRouter.Modal.{source} failed={ex}");
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private static void WriteModalChromeDiagnostics(string message)
+    {
+#if ANDROID
+        Android.Util.Log.Debug("ComponentRouting.ModalChrome", message);
+#else
+        Debug.WriteLine($"[ComponentRouting.ModalChrome] {message}");
+#endif
+    }
+
+    private static string MauiColorDescription(Color? color)
+    {
+        if (color is null)
+            return "null";
+
+        return $"#{(int)Math.Round(color.Alpha * 255):X2}{(int)Math.Round(color.Red * 255):X2}{(int)Math.Round(color.Green * 255):X2}{(int)Math.Round(color.Blue * 255):X2}";
     }
 
     private async Task PopComponentInternal(Component component, bool animated)
