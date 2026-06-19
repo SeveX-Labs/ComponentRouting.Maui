@@ -71,6 +71,133 @@ builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService
 
 `AddComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. The sample registers its router and required services explicitly.
 
+## Platform Chrome And Fullscreen Modals
+
+`AddComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. It does not apply platform chrome by itself; it only defines the options that the router will resolve for each component presentation.
+
+Call `.AddComponentRoutingMauiPlatformChrome()` after `AddComponentRoutingMaui(...)` when the app should apply platform chrome to Android activity and modal windows. Without this call, ComponentRouting.Maui registers a no-op chrome service, so resolved chrome options are conservative and no platform window changes are made.
+
+```csharp
+using ComponentRouting.Maui;
+using ComponentRouting.Maui.Chrome;
+using ComponentRouting.Maui.Ioc;
+using ComponentRouting.Maui.Provider.Core;
+using ComponentRouting.Maui.Sample.Routing;
+using ComponentRouting.Maui.Sample.Services;
+using ComponentRouting.Maui.Service.Core;
+using Microsoft.Maui.Graphics;
+
+builder.Services
+    .AddComponentRoutingMaui(
+        new[] { typeof(SampleRouter).Assembly },
+        configureChrome: chrome =>
+        {
+            var normalChromeColor = Color.FromArgb("#334155");
+            var normalChrome = new ComponentChromeOptions
+            {
+                StatusBarBackgroundColor = normalChromeColor,
+                NavigationBarBackgroundColor = normalChromeColor,
+                ActionBarBackgroundColor = normalChromeColor,
+                WindowBackgroundColor = normalChromeColor,
+                StatusBarForeground = ChromeForeground.LightContent,
+                NavigationBarForeground = ChromeForeground.LightContent,
+                ActionBarTextColor = Colors.White,
+                EdgeToEdge = false,
+                DecorFitsSystemWindows = true,
+                DisplayCutoutMode = ComponentDisplayCutoutMode.Default
+            };
+
+            chrome.GlobalDefaults = normalChrome;
+            chrome.PageDefaults = normalChrome;
+            chrome.PushableDefaults = normalChrome;
+            chrome.ModalDefaults = normalChrome;
+            chrome.FullscreenModalDefaults = new ComponentChromeOptions
+            {
+                StatusBarBackgroundColor = Colors.Transparent,
+                NavigationBarBackgroundColor = Colors.Transparent,
+                WindowBackgroundColor = Colors.Transparent,
+                StatusBarForeground = ChromeForeground.LightContent,
+                NavigationBarForeground = ChromeForeground.LightContent,
+                ActionBarTextColor = Colors.White,
+                EdgeToEdge = true,
+                DecorFitsSystemWindows = false,
+                DisplayCutoutMode = ComponentDisplayCutoutMode.Always,
+                StatusBarContrastEnforced = false,
+                NavigationBarContrastEnforced = false
+            };
+        })
+    .AddComponentRoutingMauiPlatformChrome();
+
+builder.Services.AddSingleton<SampleRouter>();
+builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
+builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();
+builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService>();
+```
+
+`ComponentChromeConfiguration` resolves options in this order: `LibraryDefaults`, `GlobalDefaults`, the presentation defaults for the current route (`PageDefaults`, `PushableDefaults`, `ModalDefaults`, or `FullscreenModalDefaults`), and finally any entry in `ComponentOverrides` for the component type. Each `ComponentChromeOptions` value is nullable. A higher-priority non-null value replaces the lower-priority value; a null value leaves the lower-priority value unchanged.
+
+`ComponentChromeOptions` properties:
+
+- `StatusBarBackgroundColor` and `NavigationBarBackgroundColor` set Android system bar colors when the platform allows the app to draw them.
+- `StatusBarForeground` and `NavigationBarForeground` choose light or dark system bar icons through `ChromeForeground.LightContent` or `ChromeForeground.DarkContent`. `ChromeForeground.Auto` is treated as no explicit foreground request.
+- `ActionBarBackgroundColor` and `ActionBarTextColor` are available for app-level conventions and future chrome integrations; they are part of the resolved options but are not applied directly by the current Android window applier.
+- `WindowBackgroundColor` sets the Android window and decor view background.
+- `EdgeToEdge` expresses the intended route style. When `EdgeToEdge` is `true` and `DecorFitsSystemWindows` is null, the Android applier sets decor fitting to `false`.
+- `DecorFitsSystemWindows` explicitly controls whether Android decor should fit system windows. Set it to `false` for fullscreen/edge-to-edge layouts and `true` for standard contained layouts.
+- `DisplayCutoutMode` maps to Android display cutout layout behavior. Use `Default` for platform defaults, `Never` to avoid cutout areas, `ShortEdges` for short-edge cutouts, and `Always` for fullscreen routes that should use the cutout area when supported.
+- `StatusBarContrastEnforced` and `NavigationBarContrastEnforced` control Android contrast enforcement on supported versions. Fullscreen transparent bars commonly set these to `false`.
+
+Chrome options are intentionally all-null by default. If you do not pass `configureChrome`, every option remains unset unless you configure it elsewhere. This keeps ComponentRouting.Maui conservative: it will not change system bar colors, foregrounds, cutout handling, contrast enforcement, window background, or decor fitting unless you opt in.
+
+### Default behavior
+
+- No `configureChrome` and no `.AddComponentRoutingMauiPlatformChrome()`: chrome options resolve as all-null and the registered chrome service is a no-op.
+- No `configureChrome` with `.AddComponentRoutingMauiPlatformChrome()`: the platform chrome service runs, but all-null options mean it has no platform window changes to apply.
+- `configureChrome` with `.AddComponentRoutingMauiPlatformChrome()`: the router resolves your defaults per presentation kind and applies them through the platform chrome service.
+
+### Fullscreen modal routing
+
+Use `FullscreenModalPageComponent<TState, TResult>` for modal pages that should resolve `FullscreenModalDefaults` and use the fullscreen safe-area policy.
+
+```csharp
+using ComponentRouting.Maui;
+using ComponentRouting.Maui.Abstraction;
+
+public sealed class FullscreenChromeDemoComponent
+    : FullscreenModalPageComponent<FullscreenChromeDemoComponent.ComponentState, bool>
+{
+    public readonly record struct ComponentState(string Title, string Message);
+
+    protected override Presenter CreatePresenter()
+    {
+        return new FullscreenChromeDemoPage();
+    }
+
+    protected override Task Configure(ComponentState state)
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override Task Initialize(ComponentState state)
+    {
+        ((FullscreenChromeDemoPage)Presenter!).Initialize(
+            state.Title,
+            state.Message,
+            () => CompletionSource?.TrySetResult(true));
+        return Task.CompletedTask;
+    }
+
+    protected override Task PresentInternal()
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+The router applies a safe-area policy to pages it presents. Fullscreen modals get `SafeAreaEdges.None`; all other presentation kinds get `SafeAreaEdges.Container`. This policy is applied to the mountable page, the component presenter when it is a `Page`, and the navigation page created for navigation components. The router does not traverse `ContentPage.Content`, root grids, borders, scroll views, or arbitrary controls inside the page. If your fullscreen content needs internal padding, apply it in the page layout.
+
+With the platform chrome service, route-specific chrome replaces app-side window code such as `ApplyChromeToWindow`, app-level `AppChromeMode` switches, manual Android `Dialog.Window` discovery, and Android-specific reapply code in pages. Keep platform chrome in `MauiProgram.cs` and keep fullscreen modal presenters focused on their UI and completion callbacks.
+
 ## Router
 
 Create a router by deriving from `AbstractRouter`:
@@ -238,6 +365,7 @@ It demonstrates:
 - flyout navigation through `SampleFlyoutRootComponent`;
 - page routing with `LoginComponent`;
 - modal routing with `DetailsComponent`;
+- fullscreen modal routing with `FullscreenChromeDemoComponent` and platform chrome defaults;
 - pushable wizard flow with `WizardStepComponent` and `WizardConfirmComponent`;
 - overlay presentation with `LoadingPopupComponent`;
 - closing mounted popup overlays with `CloseAllPopups()`;
