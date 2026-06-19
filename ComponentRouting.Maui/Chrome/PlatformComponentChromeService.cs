@@ -25,10 +25,17 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
     }
 #elif IOS
     private readonly IosWindowChromeApplier iosApplier;
+    private readonly IosStatusBarStyleCoordinator iosStatusBarStyleCoordinator;
+    private readonly IosStatusBarHostControllerService iosStatusBarHostControllerService;
 
-    public PlatformComponentChromeService(IosWindowChromeApplier iosApplier)
+    internal PlatformComponentChromeService(
+        IosWindowChromeApplier iosApplier,
+        IosStatusBarStyleCoordinator iosStatusBarStyleCoordinator,
+        IosStatusBarHostControllerService iosStatusBarHostControllerService)
     {
         this.iosApplier = iosApplier;
+        this.iosStatusBarStyleCoordinator = iosStatusBarStyleCoordinator;
+        this.iosStatusBarHostControllerService = iosStatusBarHostControllerService;
     }
 #else
     public PlatformComponentChromeService()
@@ -38,13 +45,15 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     public void Apply(ComponentChromeContext context)
     {
+#if IOS
+        ApplyIos(context);
+#else
         if (!context.Options.HasAnyConfiguredValue)
             return;
 
 #if ANDROID
         ApplyAndroid(context);
-#elif IOS
-        ApplyIos(context);
+#endif
 #endif
     }
 
@@ -136,6 +145,17 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 #if IOS
     private void ApplyIos(ComponentChromeContext context)
     {
+        if (!MainThread.IsMainThread)
+        {
+            MainThread.BeginInvokeOnMainThread(() => ApplyIos(context));
+            return;
+        }
+
+        var window = iosStatusBarHostControllerService.ResolveWindow();
+        iosStatusBarHostControllerService.EnsureInstalled(window);
+        iosStatusBarStyleCoordinator.Apply(window, context.Options.StatusBarForeground);
+        iosStatusBarHostControllerService.RequestStatusBarUpdate(window);
+
         iosApplier.Apply(context);
     }
 #endif

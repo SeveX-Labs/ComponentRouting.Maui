@@ -20,12 +20,8 @@ public sealed class IosWindowChromeApplier
         }
 
         ApplyNavigationChrome(context);
-        // StatusBarForeground is intentionally not applied on iOS yet.
-        // iOS resolves the status bar foreground through the active UIViewController's
-        // PreferredStatusBarStyle. In MAUI that controller may be a host such as
-        // PhoneFlyoutPageRenderer or ControlsModalWrapper, not the NavigationPage
-        // controller touched by this applier. Full support requires a future
-        // ComponentRouting-owned status-bar-aware host/controller strategy.
+        // StatusBarForeground is handled by the iOS status-bar host/coordinator.
+        // This applier stays focused on NavigationPage/action-bar appearance.
         ApplyWindowBackground(context);
     }
 
