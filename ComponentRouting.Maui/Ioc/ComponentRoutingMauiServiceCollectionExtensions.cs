@@ -44,6 +44,8 @@ public static class ComponentRoutingMauiServiceCollectionExtensions
 #if ANDROID
         services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
         services.TryAddSingleton<AndroidWindowChromeApplier>();
+#elif IOS
+        services.TryAddSingleton<IosWindowChromeApplier>();
 #endif
         services.Replace(ServiceDescriptor.Singleton<ComponentChromeService, PlatformComponentChromeService>());
         return services;

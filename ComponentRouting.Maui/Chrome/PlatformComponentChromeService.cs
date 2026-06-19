@@ -23,6 +23,13 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
         this.discovery = discovery;
         this.applier = applier;
     }
+#elif IOS
+    private readonly IosWindowChromeApplier iosApplier;
+
+    public PlatformComponentChromeService(IosWindowChromeApplier iosApplier)
+    {
+        this.iosApplier = iosApplier;
+    }
 #else
     public PlatformComponentChromeService()
     {
@@ -36,6 +43,8 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
 #if ANDROID
         ApplyAndroid(context);
+#elif IOS
+        ApplyIos(context);
 #endif
     }
 
@@ -122,5 +131,12 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
     }
 
     private readonly record struct LifecycleRegistrationKey(int PageHash, int ComponentHash);
+#endif
+
+#if IOS
+    private void ApplyIos(ComponentChromeContext context)
+    {
+        iosApplier.Apply(context);
+    }
 #endif
 }
