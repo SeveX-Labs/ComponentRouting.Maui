@@ -294,6 +294,7 @@ public abstract class AbstractRouter : Router
         bool didPresent = false;
         var presentationKind = GetPresentationKind(component);
 
+        ApplyComponentSafeAreaPolicy(component, presentationKind);
         RegisterComponentChromeLifecycle("BeforePresentComponent", component, presentationKind);
         ApplyComponentChrome("BeforePresentComponent", component, presentationKind);
 
@@ -308,6 +309,7 @@ public abstract class AbstractRouter : Router
                     {
                         navigationPage = CreateNavigationPage(rootPage);
                         rootComponent.Navigation = navigationPage;
+                        ApplyComponentSafeAreaPolicy(component, presentationKind, navigationPage);
                         ApplyComponentChrome("AfterCreateRootNavigationPage", component, presentationKind, navigationPage);
                         Application.Current!.Windows[0].Page = navigationPage;
                     }
@@ -372,6 +374,7 @@ public abstract class AbstractRouter : Router
                 {
                     navigationPage = CreateNavigationPage(page);
                     navigationComponent.Navigation = navigationPage;
+                    ApplyComponentSafeAreaPolicy(component, presentationKind, navigationPage);
                     ApplyComponentChrome("AfterCreateNavigationPage", component, presentationKind, navigationPage);
                 }
 
@@ -390,6 +393,7 @@ public abstract class AbstractRouter : Router
 
         if (didPresent)
         {
+            ApplyComponentSafeAreaPolicy(component, presentationKind);
             RegisterComponentChromeLifecycle("AfterPresentComponent", component, presentationKind);
             ApplyComponentChrome("AfterPresentComponent", component, presentationKind);
         }
@@ -519,8 +523,10 @@ public abstract class AbstractRouter : Router
         if (component.Presenter is not Page page)
             throw new RouterException(RouterError.PresenterIsNotPage, component);
 
+        ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("BeforePushAsync", component, presentationKind, page, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushAsync(page));
+        ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("AfterPushAsync", component, presentationKind, page, navigation);
     }
 
@@ -530,6 +536,7 @@ public abstract class AbstractRouter : Router
         var presentationKind = GetPresentationKind(component);
 
         LogModalChromeDiagnostics("BeforePushModalInternal", component, null, null);
+        ApplyComponentSafeAreaPolicy(component, presentationKind);
         ApplyComponentChrome("BeforePushModalInternal", component, presentationKind);
 
         var mountablePage = component.Presenter as Page;
@@ -542,6 +549,7 @@ public abstract class AbstractRouter : Router
             {
                 navigationComponent.Navigation = CreateNavigationPage(mountablePage);
                 LogModalChromeDiagnostics("AfterCreateNavigationPage", component, navigationComponent.Navigation, null);
+                ApplyComponentSafeAreaPolicy(component, presentationKind, navigationComponent.Navigation);
                 ApplyComponentChrome("AfterCreateModalNavigationPage", component, presentationKind, navigationComponent.Navigation);
             }
             mountablePage = navigationComponent.Navigation;
@@ -552,11 +560,21 @@ public abstract class AbstractRouter : Router
             throw new RouterException(RouterError.NavigationNotAvailable, component);
 
         LogModalChromeDiagnostics("BeforePushModalAsync", component, mountablePage, navigation);
+        ApplyComponentSafeAreaPolicy(component, presentationKind, mountablePage);
         ApplyComponentChrome("BeforePushModalAsync", component, presentationKind, mountablePage, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushModalAsync(mountablePage));
         LogModalChromeDiagnostics("AfterPushModalAsync", component, mountablePage, navigation);
+        ApplyComponentSafeAreaPolicy(component, presentationKind, mountablePage);
         RegisterComponentChromeLifecycle("AfterPushModalAsync", component, presentationKind, mountablePage, navigation);
         ApplyComponentChrome("AfterPushModalAsync", component, presentationKind, mountablePage, navigation);
+    }
+
+    private static void ApplyComponentSafeAreaPolicy(
+        Component component,
+        ComponentPresentationKind presentationKind,
+        Page? mountablePage = null)
+    {
+        ComponentSafeAreaPolicyApplier.Apply(component, presentationKind, mountablePage);
     }
 
     private ComponentChromeOptions ResolveChromeOptions(Component component, ComponentPresentationKind presentationKind)
