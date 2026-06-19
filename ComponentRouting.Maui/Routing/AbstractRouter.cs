@@ -561,6 +561,7 @@ public abstract class AbstractRouter : Router
 
         LogModalChromeDiagnostics("BeforePushModalAsync", component, mountablePage, navigation);
         ApplyComponentSafeAreaPolicy(component, presentationKind, mountablePage);
+        ApplyComponentModalPresentationPolicy(component, presentationKind, mountablePage);
         ApplyComponentChrome("BeforePushModalAsync", component, presentationKind, mountablePage, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushModalAsync(mountablePage));
         LogModalChromeDiagnostics("AfterPushModalAsync", component, mountablePage, navigation);
@@ -575,6 +576,14 @@ public abstract class AbstractRouter : Router
         Page? mountablePage = null)
     {
         ComponentSafeAreaPolicyApplier.Apply(component, presentationKind, mountablePage);
+    }
+
+    private static void ApplyComponentModalPresentationPolicy(
+        Component component,
+        ComponentPresentationKind presentationKind,
+        Page? mountablePage = null)
+    {
+        ComponentModalPresentationPolicyApplier.Apply(component, presentationKind, mountablePage);
     }
 
     private ComponentChromeOptions ResolveChromeOptions(Component component, ComponentPresentationKind presentationKind)
