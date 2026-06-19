@@ -22,6 +22,20 @@ public sealed class ComponentChromeOptions
     public bool? StatusBarContrastEnforced { get; init; }
     public bool? NavigationBarContrastEnforced { get; init; }
 
+    public bool HasAnyConfiguredValue =>
+        StatusBarBackgroundColor is not null ||
+        StatusBarForeground is not null ||
+        NavigationBarBackgroundColor is not null ||
+        NavigationBarForeground is not null ||
+        ActionBarBackgroundColor is not null ||
+        ActionBarTextColor is not null ||
+        WindowBackgroundColor is not null ||
+        EdgeToEdge is not null ||
+        DecorFitsSystemWindows is not null ||
+        DisplayCutoutMode is not null ||
+        StatusBarContrastEnforced is not null ||
+        NavigationBarContrastEnforced is not null;
+
     public ComponentChromeOptions Merge(ComponentChromeOptions? higherPriority)
     {
         if (higherPriority is null)

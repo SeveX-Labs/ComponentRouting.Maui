@@ -31,6 +31,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     public void Apply(ComponentChromeContext context)
     {
+        if (!context.Options.HasAnyConfiguredValue)
+            return;
+
 #if ANDROID
         ApplyAndroid(context);
 #endif
@@ -38,6 +41,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     public void RegisterLifecycle(ComponentChromeContext context)
     {
+        if (!context.Options.HasAnyConfiguredValue)
+            return;
+
 #if ANDROID
         RegisterAndroidLifecycle(context);
 #endif
