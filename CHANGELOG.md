@@ -1,5 +1,33 @@
 # Changelog
 
+## [4.0.0] - 2026-06-20
+
+### Added
+
+- New `MauiAppBuilder.UseComponentRoutingMaui(...)` setup API.
+- Platform chrome setup now registers both DI services and MAUI platform handlers.
+- iOS modal `StatusBarForeground` support through an internal status-bar-aware navigation page and renderer.
+- README platform support matrix for Android and iOS chrome behavior.
+- Updated sample showing platform chrome, normal modal, and fullscreen modal behavior.
+
+### Changed
+
+- ComponentRouting.Maui setup is now centered on `MauiAppBuilder`.
+- README and SAMPLE were updated to the 4.0.0 setup flow.
+
+### Breaking Changes
+
+- `AddComponentRoutingMaui(...)` is no longer the public setup entry point.
+- `AddComponentRoutingMauiPlatformChrome()` is no longer a public setup entry point.
+- `UseComponentRoutingMauiPlatformChrome()` has been replaced by the unified `UseComponentRoutingMaui(...)`.
+- Applications must migrate setup from `builder.Services...` to `builder.UseComponentRoutingMaui(...)`.
+
+### Removed
+
+- Temporary experimental API name `UseComponentRoutingMauiStatusBarModalExperiment()`.
+- Temporary iOS modal diagnostics/probe code.
+- App-specific chrome fallback logic.
+
 ## 3.0.0
 
 ### Breaking Changes

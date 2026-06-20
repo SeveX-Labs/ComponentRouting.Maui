@@ -71,7 +71,8 @@ using ComponentRouting.Maui.Sample.Services;
 using ComponentRouting.Maui.Service.Core;
 
 builder.UseComponentRoutingMaui(
-    assemblies: new[] { typeof(SampleRouter).Assembly });
+    assemblies: new[] { typeof(SampleRouter).Assembly },
+    additionalManifestScopeNamePrefixes: null);
 
 builder.Services.AddSingleton<SampleRouter>();
 builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
@@ -79,7 +80,7 @@ builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();
 builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService>();
 ```
 
-`UseComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, configures platform chrome, registers required MAUI handlers, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. The sample registers its router and required services explicitly.
+`UseComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, configures platform chrome, registers required MAUI handlers, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. Pass `additionalManifestScopeNamePrefixes` when your component manifests are generated in additional namespace scopes that should be included during discovery. The sample registers its router and required services explicitly.
 
 ## Platform Chrome And Fullscreen Modals
 
@@ -97,6 +98,7 @@ using Microsoft.Maui.Graphics;
 
 builder.UseComponentRoutingMaui(
     assemblies: new[] { typeof(SampleRouter).Assembly },
+    additionalManifestScopeNamePrefixes: null,
     configureChrome: chrome =>
     {
         var normalChromeColor = Color.FromArgb("#334155");
