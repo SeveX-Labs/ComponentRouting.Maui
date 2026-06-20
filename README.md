@@ -75,7 +75,7 @@ builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService
 
 `AddComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. It does not apply platform chrome by itself; it only defines the options that the router will resolve for each component presentation.
 
-Call `.AddComponentRoutingMauiPlatformChrome()` after `AddComponentRoutingMaui(...)` when the app should apply platform chrome to Android activity and modal windows. Without this call, ComponentRouting.Maui registers a no-op chrome service, so resolved chrome options are conservative and no platform window changes are made.
+Call `.UseComponentRoutingMauiPlatformChrome()` on the `MauiAppBuilder` when the app should apply platform chrome to Android activity and modal windows, iOS navigation chrome, and iOS status bar foreground. Without this call, ComponentRouting.Maui registers a no-op chrome service, so resolved chrome options are conservative and no platform window changes are made. The older `builder.Services.AddComponentRoutingMauiPlatformChrome()` service registration remains available for compatibility, but the builder extension is the recommended setup because iOS modal status bar support also needs MAUI handler registration.
 
 ```csharp
 using ComponentRouting.Maui;
@@ -125,8 +125,9 @@ builder.Services
                 StatusBarContrastEnforced = false,
                 NavigationBarContrastEnforced = false
             };
-        })
-    .AddComponentRoutingMauiPlatformChrome();
+        });
+
+builder.UseComponentRoutingMauiPlatformChrome();
 
 builder.Services.AddSingleton<SampleRouter>();
 builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
@@ -136,24 +137,33 @@ builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService
 
 `ComponentChromeConfiguration` resolves options in this order: `LibraryDefaults`, `GlobalDefaults`, the presentation defaults for the current route (`PageDefaults`, `PushableDefaults`, `ModalDefaults`, or `FullscreenModalDefaults`), and finally any entry in `ComponentOverrides` for the component type. Each `ComponentChromeOptions` value is nullable. A higher-priority non-null value replaces the lower-priority value; a null value leaves the lower-priority value unchanged.
 
-`ComponentChromeOptions` properties:
+`ComponentChromeOptions` platform support:
 
-- `StatusBarBackgroundColor` and `NavigationBarBackgroundColor` set Android system bar colors when the platform allows the app to draw them.
-- `StatusBarForeground` and `NavigationBarForeground` choose light or dark system bar icons through `ChromeForeground.LightContent` or `ChromeForeground.DarkContent`. `ChromeForeground.Auto` is treated as no explicit foreground request.
-- `ActionBarBackgroundColor` and `ActionBarTextColor` are available for app-level conventions and future chrome integrations; they are part of the resolved options but are not applied directly by the current Android window applier.
-- `WindowBackgroundColor` sets the Android window and decor view background.
-- `EdgeToEdge` expresses the intended route style. When `EdgeToEdge` is `true` and `DecorFitsSystemWindows` is null, the Android applier sets decor fitting to `false`.
-- `DecorFitsSystemWindows` explicitly controls whether Android decor should fit system windows. Set it to `false` for fullscreen/edge-to-edge layouts and `true` for standard contained layouts.
-- `DisplayCutoutMode` maps to Android display cutout layout behavior. Use `Default` for platform defaults, `Never` to avoid cutout areas, `ShortEdges` for short-edge cutouts, and `Always` for fullscreen routes that should use the cutout area when supported.
-- `StatusBarContrastEnforced` and `NavigationBarContrastEnforced` control Android contrast enforcement on supported versions. Fullscreen transparent bars commonly set these to `false`.
+| Option | Android | iOS | Notes |
+| --- | --- | --- | --- |
+| `StatusBarBackgroundColor` | Supported | No-op | Android exposes status bar color. iOS does not have a separate status bar background; the visible color comes from the view/controller content behind it. |
+| `StatusBarForeground` | Supported | Supported | Android maps to system bar appearance flags. iOS is controller-based: root/flyout use the ComponentRouting status bar host, and modal `NavigationPage` routes with explicit `LightContent`/`DarkContent` use an internal navigation renderer. `Auto` is treated as no explicit request. |
+| `NavigationBarBackgroundColor` | Supported | No-op | Android applies the system navigation bar color. iOS does not expose an equivalent bottom system navigation bar. |
+| `NavigationBarForeground` | Supported | No-op | Android maps to navigation bar icon appearance. iOS has no equivalent bottom system navigation bar icon foreground. |
+| `ActionBarBackgroundColor` | No-op | Supported | iOS applies it to MAUI `NavigationPage` navigation bar appearance. Android keeps this option available for app conventions but does not apply it to the activity window. |
+| `ActionBarTextColor` | No-op | Supported | iOS applies it to MAUI navigation bar title/button text. Android keeps this option available for app conventions but does not apply it to the activity window. |
+| `WindowBackgroundColor` | Supported | No-op/limited | Android applies it to the window and decor background. iOS intentionally avoids applying it to view controllers because it can cover routed content. |
+| `DecorFitsSystemWindows` | Supported | No-op | Android controls decor fitting. iOS safe area is handled through MAUI `SafeAreaEdges`. |
+| `DisplayCutoutMode` | Supported | No-op | Android-only display cutout layout behavior. |
+| `StatusBarContrastEnforced` | Supported on Android versions that expose it | No-op | Android-only contrast enforcement. |
+| `NavigationBarContrastEnforced` | Supported on Android versions that expose it | No-op | Android-only contrast enforcement. |
+| Safe area behavior | Supported through router policy | Supported through router policy | `FullscreenModal` uses `SafeAreaEdges.None`; all other presentation kinds use `SafeAreaEdges.Container`. |
+| `FullscreenModal` behavior | Supported | Supported | The router applies fullscreen modal presentation policy and fullscreen safe-area defaults without changing the component presenter layout. |
+
+On iOS, status bar foreground is resolved by UIKit from the active view controller. ComponentRouting.Maui therefore uses different mechanisms for root/flyout routes and modal routes. Root/flyout routes are handled by the root status bar host. Modal navigation routes with explicit `StatusBarForeground` are handled by an internal `NavigationPage`/renderer pair so UIKit receives the requested `PreferredStatusBarStyle`.
 
 Chrome options are intentionally all-null by default. If you do not pass `configureChrome`, every option remains unset unless you configure it elsewhere. This keeps ComponentRouting.Maui conservative: it will not change system bar colors, foregrounds, cutout handling, contrast enforcement, window background, or decor fitting unless you opt in.
 
 ### Default behavior
 
-- No `configureChrome` and no `.AddComponentRoutingMauiPlatformChrome()`: chrome options resolve as all-null and the registered chrome service is a no-op.
-- No `configureChrome` with `.AddComponentRoutingMauiPlatformChrome()`: the platform chrome service runs, but all-null options mean it has no platform window changes to apply.
-- `configureChrome` with `.AddComponentRoutingMauiPlatformChrome()`: the router resolves your defaults per presentation kind and applies them through the platform chrome service.
+- No `configureChrome` and no `.UseComponentRoutingMauiPlatformChrome()`: chrome options resolve as all-null and the registered chrome service is a no-op.
+- No `configureChrome` with `.UseComponentRoutingMauiPlatformChrome()`: the platform chrome service runs, but all-null options mean it has no platform window changes to apply.
+- `configureChrome` with `.UseComponentRoutingMauiPlatformChrome()`: the router resolves your defaults per presentation kind and applies them through the platform chrome service.
 
 ### Fullscreen modal routing
 
@@ -364,8 +374,9 @@ It demonstrates:
 - tabbed navigation through `SampleTabbedRootComponent`;
 - flyout navigation through `SampleFlyoutRootComponent`;
 - page routing with `LoginComponent`;
-- modal routing with `DetailsComponent`;
-- fullscreen modal routing with `FullscreenChromeDemoComponent` and platform chrome defaults;
+- modal routing with `DetailsComponent`, using platform chrome defaults and light status bar foreground;
+- fullscreen modal routing with `FullscreenChromeDemoComponent` and fullscreen platform chrome defaults;
+- route-specific light/dark status bar foreground through `ComponentChromeOptions` defaults and overrides;
 - pushable wizard flow with `WizardStepComponent` and `WizardConfirmComponent`;
 - overlay presentation with `LoadingPopupComponent`;
 - closing mounted popup overlays with `CloseAllPopups()`;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using ComponentRouting.Maui;
 using ComponentRouting.Maui.Chrome;
 using ComponentRouting.Maui.Ioc;
+using ComponentRouting.Maui.Sample.Components.Pages;
 using ComponentRouting.Maui.Provider.Core;
 using ComponentRouting.Maui.Sample.Routing;
 using ComponentRouting.Maui.Sample.Services;
@@ -17,6 +18,7 @@ public static class MauiProgram
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
+			.UseComponentRoutingMauiPlatformChrome()
 			.UseMauiCommunityToolkit()
 			.ConfigureFonts(fonts =>
 			{
@@ -62,8 +64,13 @@ public static class MauiProgram
 						StatusBarContrastEnforced = false,
 						NavigationBarContrastEnforced = false
 					};
-				})
-			.AddComponentRoutingMauiPlatformChrome();
+					chrome.ComponentOverrides[typeof(LoginComponent)] = new ComponentChromeOptions
+					{
+						StatusBarForeground = ChromeForeground.DarkContent,
+						NavigationBarForeground = ChromeForeground.DarkContent,
+						ActionBarTextColor = Colors.Black
+					};
+				});
 		builder.Services.AddSingleton<SampleRouter>();
 		builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
 		builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();

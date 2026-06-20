@@ -547,7 +547,12 @@ public abstract class AbstractRouter : Router
         {
             if (navigationComponent.Navigation is null)
             {
-                navigationComponent.Navigation = CreateNavigationPage(mountablePage);
+                var chromeOptions = ResolveChromeOptions(component, presentationKind);
+                navigationComponent.Navigation = CreateNavigationPage(
+                    mountablePage,
+                    presentationKind,
+                    chromeOptions,
+                    useStatusBarNavigationPage: true);
                 LogModalChromeDiagnostics("AfterCreateNavigationPage", component, navigationComponent.Navigation, null);
                 ApplyComponentSafeAreaPolicy(component, presentationKind, navigationComponent.Navigation);
                 ApplyComponentChrome("AfterCreateModalNavigationPage", component, presentationKind, navigationComponent.Navigation);
@@ -886,30 +891,39 @@ public abstract class AbstractRouter : Router
         }
     }
 
-    private NavigationPage CreateNavigationPage(Page rootPage)
+    private NavigationPage CreateNavigationPage(
+        Page rootPage,
+        ComponentPresentationKind presentationKind = ComponentPresentationKind.Page,
+        ComponentChromeOptions? chromeOptions = null,
+        bool useStatusBarNavigationPage = false)
     {
-        var navigationPage = new NavigationPage(rootPage)
-        {
-            BarTextColor = Color.FromArgb("#FFFFFF")
-        };
-
-        if (Application.Current is not null &&
-            Application.Current.Resources.TryGetValue("Trout", out var troutColorResource) &&
-            Application.Current.Resources.TryGetValue("Charade", out var charadeColorResource))
-        {
-            var brush = new LinearGradientBrush()
-            {
-                StartPoint = new Point(0, 0),
-                EndPoint = new Point(0, 1)
-            };
-            var troutColor = (Color)troutColorResource;
-            var charadeColor = (Color)charadeColorResource;
-            brush.GradientStops.Add(new GradientStop(troutColor, 0));
-            brush.GradientStops.Add(new GradientStop(charadeColor, 1));
-            navigationPage.Background = brush;
-        }
+        var navigationPage = CreateNavigationPageInstance(
+            rootPage,
+            presentationKind,
+            chromeOptions,
+            useStatusBarNavigationPage);
 
         return navigationPage;
+    }
+
+    private static NavigationPage CreateNavigationPageInstance(
+        Page rootPage,
+        ComponentPresentationKind presentationKind,
+        ComponentChromeOptions? chromeOptions,
+        bool useStatusBarNavigationPage)
+    {
+#if IOS
+        if (useStatusBarNavigationPage &&
+            chromeOptions?.StatusBarForeground is ChromeForeground.LightContent or ChromeForeground.DarkContent)
+        {
+            return new ComponentRoutingStatusBarNavigationPage(
+                rootPage,
+                chromeOptions.StatusBarForeground.Value,
+                presentationKind);
+        }
+#endif
+
+        return new NavigationPage(rootPage);
     }
 
     private bool IsDeviceBackPressedResolved()
