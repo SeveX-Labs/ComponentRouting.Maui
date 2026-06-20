@@ -265,7 +265,7 @@ public abstract class AbstractRouter : Router
             }
             else if (component.IsSubclassOfRawGeneric(typeof(ModalPageComponent<,>)))
             {
-                _ = PopModalComponentInternal(component, true);
+                await PopModalComponentInternal(component, true);
             }
             else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
             {
