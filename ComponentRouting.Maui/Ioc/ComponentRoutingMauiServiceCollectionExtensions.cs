@@ -8,14 +8,9 @@ using ComponentRouting.Maui.Chrome;
 
 namespace ComponentRouting.Maui.Ioc;
 
-public static class ComponentRoutingMauiServiceCollectionExtensions
+internal static class ComponentRoutingMauiServiceCollectionExtensions
 {
-    public static IServiceCollection AddComponentRoutingMaui(this IServiceCollection services, params Assembly[] assemblies)
-    {
-        return services.AddComponentRoutingMaui((IEnumerable<Assembly>?)assemblies);
-    }
-
-    public static IServiceCollection AddComponentRoutingMaui(
+    public static IServiceCollection RegisterComponentRoutingMauiServices(
         this IServiceCollection services,
         IEnumerable<Assembly>? assemblies = null,
         IEnumerable<string>? additionalManifestScopeNamePrefixes = null,
@@ -39,7 +34,7 @@ public static class ComponentRoutingMauiServiceCollectionExtensions
             componentType => IsOverlayOrSnackbar(componentType) ? ServiceLifetime.Transient : null);
     }
 
-    public static IServiceCollection AddComponentRoutingMauiPlatformChrome(this IServiceCollection services)
+    public static IServiceCollection RegisterComponentRoutingMauiPlatformChromeServices(this IServiceCollection services)
     {
 #if ANDROID
         services.TryAddSingleton<AndroidModalWindowDiscoveryService>();

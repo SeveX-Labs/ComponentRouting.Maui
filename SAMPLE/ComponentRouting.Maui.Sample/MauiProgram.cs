@@ -18,17 +18,8 @@ public static class MauiProgram
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
-			.UseComponentRoutingMauiPlatformChrome()
-			.UseMauiCommunityToolkit()
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-			});
-
-		builder.Services
-			.AddComponentRoutingMaui(
-				new[] { typeof(SampleRouter).Assembly },
+			.UseComponentRoutingMaui(
+				assemblies: new[] { typeof(SampleRouter).Assembly },
 				configureChrome: chrome =>
 				{
 					var normalChromeColor = Color.FromArgb("#334155");
@@ -70,7 +61,14 @@ public static class MauiProgram
 						NavigationBarForeground = ChromeForeground.DarkContent,
 						ActionBarTextColor = Colors.Black
 					};
-				});
+				})
+			.UseMauiCommunityToolkit()
+			.ConfigureFonts(fonts =>
+			{
+				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+			});
+
 		builder.Services.AddSingleton<SampleRouter>();
 		builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
 		builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();

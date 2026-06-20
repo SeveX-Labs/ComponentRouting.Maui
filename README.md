@@ -13,7 +13,7 @@ The library focuses on routing and composition rather than visual styling. Your 
 - Popup cleanup through `Router.CloseAllPopups()`.
 - Extensible routing through `AbstractRouter`, including protected `RootComponent` and `CanNavigateBack(...)`.
 - Component creation through `ComponentFactory.CreateComponent<T>()`.
-- Microsoft dependency injection registration and component scanning with `AddComponentRoutingMaui(...)`.
+- Microsoft dependency injection registration, component scanning, platform chrome, and MAUI handler setup with `UseComponentRoutingMaui(...)`.
 - Built-in component base types for root, page, modal, push, overlay, snackbar, tab, and flyout flows.
 - Singleton registration for normal components and transient registration for overlays and snackbars.
 
@@ -34,13 +34,21 @@ Starting from version 2.0.0, ComponentRouting.Maui is packaged only for MAUI pla
 
 Starting from version 3.0.0, mounted component lookup is explicitly scoped to overlays and snackbars. Replace `GetMountedComponent<TComponent>()` with `GetMountedOverlayComponent<TComponent>()`, and replace `GetMountedComponents<TComponent>()` with `GetMountedOverlayComponents<TComponent>()`. The generic component type must be an overlay component.
 
+Starting from version 4.0.0, setup is unified under `MauiAppBuilder`. Call `UseComponentRoutingMaui(...)` from `MauiProgram.cs`; it registers ComponentRouting services, platform chrome services, and the MAUI handlers needed by platform-specific chrome behavior.
+
 ## Installation
 
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 3.0.0
+dotnet add package ComponentRouting.Maui --version 4.0.0
 ```
+
+## Breaking Changes In 4.0.0
+
+- Setup now uses `MauiAppBuilder.UseComponentRoutingMaui(...)`.
+- The previous public service-collection setup extensions were removed from the public API.
+- Platform chrome registration is part of `UseComponentRoutingMaui(...)` because ComponentRouting.Maui must register both DI services and MAUI handlers.
 
 ## Breaking Changes In 3.0.0
 
@@ -62,20 +70,20 @@ using ComponentRouting.Maui.Sample.Routing;
 using ComponentRouting.Maui.Sample.Services;
 using ComponentRouting.Maui.Service.Core;
 
-builder.Services.AddComponentRoutingMaui(typeof(SampleRouter).Assembly);
+builder.UseComponentRoutingMaui(
+    assemblies: new[] { typeof(SampleRouter).Assembly });
+
 builder.Services.AddSingleton<SampleRouter>();
 builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
 builder.Services.AddSingleton<CatalogProvider, SampleCatalogProvider>();
 builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService>();
 ```
 
-`AddComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. The sample registers its router and required services explicitly.
+`UseComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, configures platform chrome, registers required MAUI handlers, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. The sample registers its router and required services explicitly.
 
 ## Platform Chrome And Fullscreen Modals
 
-`AddComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. It does not apply platform chrome by itself; it only defines the options that the router will resolve for each component presentation.
-
-Call `.UseComponentRoutingMauiPlatformChrome()` on the `MauiAppBuilder` when the app should apply platform chrome to Android activity and modal windows, iOS navigation chrome, and iOS status bar foreground. Without this call, ComponentRouting.Maui registers a no-op chrome service, so resolved chrome options are conservative and no platform window changes are made. The older `builder.Services.AddComponentRoutingMauiPlatformChrome()` service registration remains available for compatibility, but the builder extension is the recommended setup because iOS modal status bar support also needs MAUI handler registration.
+`UseComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. In 4.0.0 this setup lives on `MauiAppBuilder` because ComponentRouting.Maui must register DI services and platform-specific MAUI handlers in one place.
 
 ```csharp
 using ComponentRouting.Maui;
@@ -87,47 +95,44 @@ using ComponentRouting.Maui.Sample.Services;
 using ComponentRouting.Maui.Service.Core;
 using Microsoft.Maui.Graphics;
 
-builder.Services
-    .AddComponentRoutingMaui(
-        new[] { typeof(SampleRouter).Assembly },
-        configureChrome: chrome =>
+builder.UseComponentRoutingMaui(
+    assemblies: new[] { typeof(SampleRouter).Assembly },
+    configureChrome: chrome =>
+    {
+        var normalChromeColor = Color.FromArgb("#334155");
+        var normalChrome = new ComponentChromeOptions
         {
-            var normalChromeColor = Color.FromArgb("#334155");
-            var normalChrome = new ComponentChromeOptions
-            {
-                StatusBarBackgroundColor = normalChromeColor,
-                NavigationBarBackgroundColor = normalChromeColor,
-                ActionBarBackgroundColor = normalChromeColor,
-                WindowBackgroundColor = normalChromeColor,
-                StatusBarForeground = ChromeForeground.LightContent,
-                NavigationBarForeground = ChromeForeground.LightContent,
-                ActionBarTextColor = Colors.White,
-                EdgeToEdge = false,
-                DecorFitsSystemWindows = true,
-                DisplayCutoutMode = ComponentDisplayCutoutMode.Default
-            };
+            StatusBarBackgroundColor = normalChromeColor,
+            NavigationBarBackgroundColor = normalChromeColor,
+            ActionBarBackgroundColor = normalChromeColor,
+            WindowBackgroundColor = normalChromeColor,
+            StatusBarForeground = ChromeForeground.LightContent,
+            NavigationBarForeground = ChromeForeground.LightContent,
+            ActionBarTextColor = Colors.White,
+            EdgeToEdge = false,
+            DecorFitsSystemWindows = true,
+            DisplayCutoutMode = ComponentDisplayCutoutMode.Default
+        };
 
-            chrome.GlobalDefaults = normalChrome;
-            chrome.PageDefaults = normalChrome;
-            chrome.PushableDefaults = normalChrome;
-            chrome.ModalDefaults = normalChrome;
-            chrome.FullscreenModalDefaults = new ComponentChromeOptions
-            {
-                StatusBarBackgroundColor = Colors.Transparent,
-                NavigationBarBackgroundColor = Colors.Transparent,
-                WindowBackgroundColor = Colors.Transparent,
-                StatusBarForeground = ChromeForeground.LightContent,
-                NavigationBarForeground = ChromeForeground.LightContent,
-                ActionBarTextColor = Colors.White,
-                EdgeToEdge = true,
-                DecorFitsSystemWindows = false,
-                DisplayCutoutMode = ComponentDisplayCutoutMode.Always,
-                StatusBarContrastEnforced = false,
-                NavigationBarContrastEnforced = false
-            };
-        });
-
-builder.UseComponentRoutingMauiPlatformChrome();
+        chrome.GlobalDefaults = normalChrome;
+        chrome.PageDefaults = normalChrome;
+        chrome.PushableDefaults = normalChrome;
+        chrome.ModalDefaults = normalChrome;
+        chrome.FullscreenModalDefaults = new ComponentChromeOptions
+        {
+            StatusBarBackgroundColor = Colors.Transparent,
+            NavigationBarBackgroundColor = Colors.Transparent,
+            WindowBackgroundColor = Colors.Transparent,
+            StatusBarForeground = ChromeForeground.LightContent,
+            NavigationBarForeground = ChromeForeground.LightContent,
+            ActionBarTextColor = Colors.White,
+            EdgeToEdge = true,
+            DecorFitsSystemWindows = false,
+            DisplayCutoutMode = ComponentDisplayCutoutMode.Always,
+            StatusBarContrastEnforced = false,
+            NavigationBarContrastEnforced = false
+        };
+    });
 
 builder.Services.AddSingleton<SampleRouter>();
 builder.Services.AddSingleton<Router>(sp => sp.GetRequiredService<SampleRouter>());
@@ -161,9 +166,8 @@ Chrome options are intentionally all-null by default. If you do not pass `config
 
 ### Default behavior
 
-- No `configureChrome` and no `.UseComponentRoutingMauiPlatformChrome()`: chrome options resolve as all-null and the registered chrome service is a no-op.
-- No `configureChrome` with `.UseComponentRoutingMauiPlatformChrome()`: the platform chrome service runs, but all-null options mean it has no platform window changes to apply.
-- `configureChrome` with `.UseComponentRoutingMauiPlatformChrome()`: the router resolves your defaults per presentation kind and applies them through the platform chrome service.
+- No `configureChrome`: chrome options resolve as all-null, so platform chrome services are active but have no platform window changes to apply.
+- `configureChrome`: the router resolves your defaults per presentation kind and applies them through the platform chrome service.
 
 ### Fullscreen modal routing
 
@@ -382,7 +386,7 @@ It demonstrates:
 - closing mounted popup overlays with `CloseAllPopups()`;
 - snackbar presentation with `InfoSnackbarComponent`;
 - mounted overlay and snackbar lookup;
-- DI registration through `AddComponentRoutingMaui(...)`, `SampleRouter`, `CatalogProvider`, and `SafeAreaInsetsService`.
+- builder setup through `UseComponentRoutingMaui(...)`, plus `SampleRouter`, `CatalogProvider`, and `SafeAreaInsetsService` registration.
 
 The app creates an initial placeholder window page, then presents the root component when the window is created.
 
@@ -552,7 +556,7 @@ mv Directory.Build.local.props.disabled Directory.Build.local.props
 To inspect the generated package contents:
 
 ```bash
-unzip -l ./local-nuget/ComponentRouting.Maui.3.0.0.nupkg | grep "lib/"
+unzip -l ./local-nuget/ComponentRouting.Maui.4.0.0.nupkg | grep "lib/"
 ```
 
 With .NET MAUI/.NET 10, it is normal for the generated `.nupkg` to contain platform-normalized asset folders such as:
