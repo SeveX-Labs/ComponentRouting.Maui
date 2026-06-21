@@ -3,6 +3,7 @@ using CoreGraphics;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Platform;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UIKit;
 
@@ -33,9 +34,9 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
 
         return surfaceKind switch
         {
-            OverlaySurfaceKind.Root => TryCreateRootSurfaceCore(ownerComponent, out surfaceHost),
-            OverlaySurfaceKind.Modal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-modal", out surfaceHost),
-            OverlaySurfaceKind.FullscreenModal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-fullscreen-modal", out surfaceHost),
+            OverlaySurfaceKind.Root => TryCreateRootSurfaceDiscoveryOnly(ownerComponent, out surfaceHost),
+            OverlaySurfaceKind.Modal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
+            OverlaySurfaceKind.FullscreenModal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
             _ => TryRejectUnknownSurface(surfaceKind, out surfaceHost)
         };
     }
@@ -47,6 +48,46 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         surfaceHost = null!;
         OverlayTraceLog.Write(
             $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=UnsupportedSurface");
+        return false;
+    }
+
+    private static bool TryRejectDisabledModalSurface(
+        OverlaySurfaceKind surfaceKind,
+        out OverlaySurfaceHost surfaceHost)
+    {
+        surfaceHost = null!;
+        OverlayTraceLog.Write(
+            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=ModalSurfaceDisabledInPhase4B1 fallback=legacy");
+        return false;
+    }
+
+    private bool TryCreateRootSurfaceDiscoveryOnly(Component parentComponent, out OverlaySurfaceHost surfaceHost)
+    {
+        surfaceHost = null!;
+        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
+        OverlayTraceLog.Write(
+            $"op={operationId} step=ios.provider.root.discoveryOnly.begin provider={OverlayTraceLog.DescribeObject(this)} parent={OverlayTraceLog.DescribeObject(parentComponent)} connectedSceneCount={UIApplication.SharedApplication.ConnectedScenes.Count} scenes={DescribeConnectedScenes()}");
+
+        var window = discovery.ResolveRootWindow();
+        var candidates = window is null
+            ? Array.Empty<IosOverlaySurfaceDiscoveryService.IosPresentedControllerCandidate>()
+            : discovery.FindPresentedControllerCandidates(window);
+        var topPresented = candidates.LastOrDefault();
+        var rootController = window?.RootViewController;
+        var rootView = rootController?.IsViewLoaded == true ? rootController.View : null;
+
+        OverlayTraceLog.Write(
+            $"op={operationId} step=ios.provider.root.discoveryOnly.window window={DescribeNullableView(window)} rootController={DescribeController(rootController)} rootViewCandidate={DescribeNullableView(rootView)} presentedCandidateCount={candidates.Count()} topPresentedController={OverlayTraceLog.DescribeObject(topPresented?.Controller)} topPresentedSurfaceController={OverlayTraceLog.DescribeObject(topPresented?.SurfaceController)} topPresentedView={DescribeNullableView(topPresented?.SurfaceView)}");
+
+        if (window is null)
+        {
+            OverlayTraceLog.Write(
+                $"op={operationId} step=ios.provider.root.discoveryOnly.end success=false reason=WindowNull fallback=legacy");
+            return false;
+        }
+
+        OverlayTraceLog.Write(
+            $"op={operationId} step=ios.provider.root.discoveryOnly.end success=true reason=DiscoveryOnlyReturningFalse fallback=legacy");
         return false;
     }
 
@@ -315,7 +356,7 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
     {
         return $"{OverlayTraceLog.DescribeObject(view)} " +
                $"window={OverlayTraceLog.DescribeObject(view.Window)} superview={OverlayTraceLog.DescribeObject(view.Superview)} " +
-               $"hidden={view.Hidden} alpha={view.Alpha} frame={DescribeRect(view.Frame)} bounds={DescribeRect(view.Bounds)} subviews={view.Subviews.Length}";
+               $"hidden={view.Hidden} alpha={view.Alpha} frame={DescribeRect(view.Frame)} bounds={DescribeRect(view.Bounds)} safeArea={DescribeInsets(view.SafeAreaInsets)} subviews={view.Subviews.Length}";
     }
 
     private static string DescribeNullableView(UIView? view)
@@ -326,6 +367,44 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
     private static string DescribeRect(CGRect rect)
     {
         return $"x={rect.X} y={rect.Y} width={rect.Width} height={rect.Height}";
+    }
+
+    private static string DescribeInsets(UIEdgeInsets insets)
+    {
+        return $"top={insets.Top} left={insets.Left} bottom={insets.Bottom} right={insets.Right}";
+    }
+
+    private static string DescribeController(UIViewController? controller)
+    {
+        if (controller is null)
+            return "null";
+
+        var view = controller.IsViewLoaded ? controller.View : null;
+        return $"{OverlayTraceLog.DescribeObject(controller)} " +
+               $"isViewLoaded={controller.IsViewLoaded} view={DescribeNullableView(view)} " +
+               $"presented={OverlayTraceLog.DescribeObject(controller.PresentedViewController)} presenting={OverlayTraceLog.DescribeObject(controller.PresentingViewController)}";
+    }
+
+    private static string DescribeConnectedScenes()
+    {
+        var sceneDescriptions = new List<string>();
+        foreach (var scene in UIApplication.SharedApplication.ConnectedScenes)
+        {
+            if (scene is not UIWindowScene windowScene)
+            {
+                sceneDescriptions.Add(OverlayTraceLog.DescribeObject(scene));
+                continue;
+            }
+
+            var windows = string.Join(", ", windowScene.Windows.Select((window, index) =>
+                $"window[{index}]={DescribeView(window)} isKey={window.IsKeyWindow}"));
+            sceneDescriptions.Add(
+                $"{OverlayTraceLog.DescribeObject(windowScene)} activationState={windowScene.ActivationState} windows=[{windows}]");
+        }
+
+        return sceneDescriptions.Count == 0
+            ? "none"
+            : string.Join(" || ", sceneDescriptions);
     }
 }
 #endif
