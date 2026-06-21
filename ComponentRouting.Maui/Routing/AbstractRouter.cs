@@ -813,13 +813,21 @@ public abstract class AbstractRouter : Router
 
         ApplySnackbarDefaultLayout(component);
 
-        var surfaceHandle = TryMountOverlaySurface(surfaceHost, layout);
-        if (surfaceHandle is null)
+        var surfaceMount = TryMountOverlaySurface(surfaceHost, layout);
+        if (surfaceMount is null)
             return false;
 
         OverlaySurfaceOwnership.Set(component, ownerSurfaceKind);
-        if (component is SnackbarComponent) History.AddSnackbar(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
-        else History.AddPopup(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
+        if (component is SnackbarComponent)
+            History.AddSnackbar(
+                surfaceMount.SurfaceHost.ParentComponent.GetType(),
+                component,
+                surfaceMount.SurfaceHandle);
+        else
+            History.AddPopup(
+                surfaceMount.SurfaceHost.ParentComponent.GetType(),
+                component,
+                surfaceMount.SurfaceHandle);
 
         return true;
     }
@@ -858,11 +866,11 @@ public abstract class AbstractRouter : Router
         }
     }
 
-    private OverlaySurfaceHandle? TryMountOverlaySurface(OverlaySurfaceHost surfaceHost, Layout layout)
+    private OverlaySurfaceMount? TryMountOverlaySurface(OverlaySurfaceHost surfaceHost, Layout layout)
     {
         try
         {
-            return surfaceHost.Mount(layout);
+            return new OverlaySurfaceMount(surfaceHost, surfaceHost.Mount(layout));
         }
         catch (Exception ex) when (surfaceHost.IsPlatformHost)
         {
@@ -885,8 +893,12 @@ public abstract class AbstractRouter : Router
             return null;
         }
 
-        return legacySurfaceHost.Mount(layout);
+        return new OverlaySurfaceMount(legacySurfaceHost, legacySurfaceHost.Mount(layout));
     }
+
+    private sealed record OverlaySurfaceMount(
+        OverlaySurfaceHost SurfaceHost,
+        OverlaySurfaceHandle SurfaceHandle);
 
     private IOverlayPlatformSurfaceProvider? GetOverlayPlatformSurfaceProvider()
     {

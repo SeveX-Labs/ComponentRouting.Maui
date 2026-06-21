@@ -37,6 +37,18 @@ public class OverlaySurfaceOwnershipTests
     }
 
     [Fact]
+    public void GetInheritedSurface_preserves_modal_ownership_for_push_inside_modal()
+    {
+        var registry = new OverlaySurfaceOwnershipRegistry();
+        var modal = new TestComponent();
+
+        registry.Set(modal, OverlaySurfaceKind.Modal);
+        var inheritedSurface = registry.GetInheritedSurface(modal);
+
+        Assert.Equal(OverlaySurfaceKind.Modal, inheritedSurface);
+    }
+
+    [Fact]
     public void Remove_deletes_owner_surface_by_component_reference()
     {
         var registry = new OverlaySurfaceOwnershipRegistry();
@@ -66,14 +78,20 @@ public class OverlaySurfaceOwnershipTests
     [Fact]
     public void OverlaySurfaceDecisionPolicy_allows_root_platform_surface_for_root()
     {
-        Assert.True(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Root));
+        Assert.True(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Root, hasPopupOwner: false));
     }
 
     [Fact]
     public void OverlaySurfaceDecisionPolicy_rejects_root_platform_surface_for_non_root_surfaces()
     {
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Modal));
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.FullscreenModal));
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Unknown));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Modal, hasPopupOwner: false));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.FullscreenModal, hasPopupOwner: false));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Unknown, hasPopupOwner: false));
+    }
+
+    [Fact]
+    public void OverlaySurfaceDecisionPolicy_rejects_root_platform_surface_when_popup_owner_exists()
+    {
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(OverlaySurfaceKind.Root, hasPopupOwner: true));
     }
 }
