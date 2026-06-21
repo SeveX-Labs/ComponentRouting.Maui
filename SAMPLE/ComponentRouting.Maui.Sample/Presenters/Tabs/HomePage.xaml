@@ -15,6 +15,18 @@
                 <Button Text="Open Login Page" Clicked="HandleOpenLoginClicked" />
                 <Button Text="Open Modal Details" Clicked="HandleOpenDetailsClicked" />
                 <Button Text="Start Wizard" Clicked="HandleStartWizardClicked" />
+                <Border Padding="12" StrokeThickness="1">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Overlay matrix" FontAttributes="Bold" />
+                        <Label Text="Use these actions to compare overlay and snackbar bounds from root, push, modal, and push-inside-modal surfaces."
+                               FontSize="13"
+                               LineBreakMode="WordWrap" />
+                        <Button Text="Show overlay from root" Clicked="HandleShowMatrixRootOverlayClicked" />
+                        <Button Text="Show snackbar from root" Clicked="HandleShowMatrixRootSnackbarClicked" />
+                        <Button Text="Open push overlay demo" Clicked="HandleOpenPushOverlayDemoClicked" />
+                        <Button Text="Open modal overlay demo" Clicked="HandleOpenModalOverlayDemoClicked" />
+                    </VerticalStackLayout>
+                </Border>
                 <Button Text="Show Loading Popup" Clicked="HandleShowLoadingClicked" />
                 <Button Text="Hide Loading Popup" Clicked="HandleHideLoadingClicked" />
                 <Button Text="Close All Popups" Clicked="HandleCloseAllPopupsClicked" />

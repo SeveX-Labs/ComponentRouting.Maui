@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<abstraction:PushablePresenter xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                               xmlns:abstraction="clr-namespace:ComponentRouting.Maui.Abstraction;assembly=ComponentRouting.Maui"
+                               x:Class="ComponentRouting.Maui.Sample.Presenters.Pushables.OverlayMatrixPushPage">
+    <AbsoluteLayout>
+        <ScrollView AbsoluteLayout.LayoutBounds="0,0,1,1"
+                    AbsoluteLayout.LayoutFlags="All">
+            <VerticalStackLayout Padding="24" Spacing="12">
+                <Label x:Name="TitleLabel" FontSize="24" FontAttributes="Bold" />
+                <Label x:Name="MessageLabel" LineBreakMode="WordWrap" />
+                <Label x:Name="SurfaceLabel" FontSize="13" />
+                <Button Text="Show overlay from push" Clicked="HandleShowOverlayClicked" />
+                <Button Text="Show snackbar from push" Clicked="HandleShowSnackbarClicked" />
+                <Button Text="Close overlay" Clicked="HandleCloseOverlayClicked" />
+                <Button Text="Back" Clicked="HandleCloseClicked" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <AbsoluteLayout x:Name="OverlayLayer"
+                        AbsoluteLayout.LayoutBounds="0,0,1,1"
+                        AbsoluteLayout.LayoutFlags="All" />
+    </AbsoluteLayout>
+</abstraction:PushablePresenter>

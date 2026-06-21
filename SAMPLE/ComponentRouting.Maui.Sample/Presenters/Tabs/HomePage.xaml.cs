@@ -12,6 +12,10 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
     private Func<Task>? closeAllPopups;
     private Func<Task>? showSnackbar;
     private Func<Task>? countSnackbars;
+    private Func<Task>? showMatrixRootOverlay;
+    private Func<Task>? showMatrixRootSnackbar;
+    private Func<Task>? openPushOverlayDemo;
+    private Func<Task>? openModalOverlayDemo;
 
     public HomePage()
     {
@@ -28,7 +32,11 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
         Func<Task> hideLoading,
         Func<Task> closeAllPopups,
         Func<Task> showSnackbar,
-        Func<Task> countSnackbars)
+        Func<Task> countSnackbars,
+        Func<Task> showMatrixRootOverlay,
+        Func<Task> showMatrixRootSnackbar,
+        Func<Task> openPushOverlayDemo,
+        Func<Task> openModalOverlayDemo)
     {
         this.openLogin = openLogin;
         this.openDetails = openDetails;
@@ -38,6 +46,10 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
         this.closeAllPopups = closeAllPopups;
         this.showSnackbar = showSnackbar;
         this.countSnackbars = countSnackbars;
+        this.showMatrixRootOverlay = showMatrixRootOverlay;
+        this.showMatrixRootSnackbar = showMatrixRootSnackbar;
+        this.openPushOverlayDemo = openPushOverlayDemo;
+        this.openModalOverlayDemo = openModalOverlayDemo;
     }
 
     public void SetFactoryStatus(bool isSingleton)
@@ -65,6 +77,10 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
     private async void HandleCloseAllPopupsClicked(object? sender, EventArgs e) => await Invoke(closeAllPopups);
     private async void HandleShowSnackbarClicked(object? sender, EventArgs e) => await Invoke(showSnackbar);
     private async void HandleCountSnackbarsClicked(object? sender, EventArgs e) => await Invoke(countSnackbars);
+    private async void HandleShowMatrixRootOverlayClicked(object? sender, EventArgs e) => await Invoke(showMatrixRootOverlay);
+    private async void HandleShowMatrixRootSnackbarClicked(object? sender, EventArgs e) => await Invoke(showMatrixRootSnackbar);
+    private async void HandleOpenPushOverlayDemoClicked(object? sender, EventArgs e) => await Invoke(openPushOverlayDemo);
+    private async void HandleOpenModalOverlayDemoClicked(object? sender, EventArgs e) => await Invoke(openModalOverlayDemo);
 
     private static async Task Invoke(Func<Task>? action)
     {

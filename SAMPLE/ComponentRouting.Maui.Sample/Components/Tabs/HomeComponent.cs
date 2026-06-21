@@ -38,7 +38,11 @@ public sealed class HomeComponent : SampleTabComponent<bool>
             HideLoading,
             CloseAllPopups,
             ShowSnackbar,
-            CountSnackbars);
+            CountSnackbars,
+            ShowMatrixRootOverlay,
+            ShowMatrixRootSnackbar,
+            OpenPushOverlayDemo,
+            OpenModalOverlayDemo);
         page.SetFactoryStatus(ReferenceEquals(
             componentFactory.CreateComponent<SampleTabbedRootComponent>(),
             componentFactory.CreateComponent<SampleTabbedRootComponent>()));
@@ -70,6 +74,49 @@ public sealed class HomeComponent : SampleTabComponent<bool>
         var result = await router.PresentComponent<WizardStepComponent, WizardStepComponent.ComponentState, WizardResult>(
             new WizardStepComponent.ComponentState("Wizard step", "Step one preloads the confirmation component."));
         ((HomePage)Presenter!).SetLastResult($"Wizard result: {result}");
+    }
+
+    private Task ShowMatrixRootOverlay()
+    {
+        if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
+        {
+            _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
+                new LoadingPopupComponent.ComponentState(
+                    "Overlay from root",
+                    "This intentionally uses the current root tab overlay host."));
+        }
+
+        UpdateMountedCounts();
+        return Task.CompletedTask;
+    }
+
+    private Task ShowMatrixRootSnackbar()
+    {
+        _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
+            new SnackbarConfiguration("Snackbar from root", false, 0));
+        UpdateMountedCounts();
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenPushOverlayDemo()
+    {
+        var result = await router.PresentComponent<OverlayMatrixPushComponent, OverlayMatrixPushComponent.ComponentState, bool>(
+            new OverlayMatrixPushComponent.ComponentState(
+                "Push overlay demo",
+                "Use this pushed page to compare overlay and snackbar bounds from a PushAsync surface.",
+                "push page"));
+        ((HomePage)Presenter!).SetLastResult($"Push overlay demo result: {result}");
+        UpdateMountedCounts();
+    }
+
+    private async Task OpenModalOverlayDemo()
+    {
+        var result = await router.PresentComponent<OverlayMatrixModalComponent, OverlayMatrixModalComponent.ComponentState, bool>(
+            new OverlayMatrixModalComponent.ComponentState(
+                "Modal overlay demo",
+                "Use this modal to compare overlay and snackbar bounds from a modal surface and a push inside it."));
+        ((HomePage)Presenter!).SetLastResult($"Modal overlay demo result: {result}");
+        UpdateMountedCounts();
     }
 
     private Task ShowLoading()
