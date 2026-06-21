@@ -118,4 +118,17 @@ public class OverlaySurfaceOwnershipTests
             hasPopupOwner: false,
             hasActiveNativeModal: true));
     }
+
+    [Fact]
+    public void OverlaySurfaceDecisionPolicy_keeps_modal_surfaces_on_legacy_in_phase_3a()
+    {
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+            OverlaySurfaceKind.Modal,
+            hasPopupOwner: false,
+            hasActiveNativeModal: true));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+            OverlaySurfaceKind.FullscreenModal,
+            hasPopupOwner: false,
+            hasActiveNativeModal: true));
+    }
 }

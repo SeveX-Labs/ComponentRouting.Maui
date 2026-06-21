@@ -10,25 +10,29 @@ internal sealed class OverlaySurfaceHost
 {
     private readonly Func<Layout, bool> contains;
     private readonly Func<Layout, OverlaySurfaceHandle> mount;
+    private readonly string hostKind;
 
     private OverlaySurfaceHost(
         Component parentComponent,
+        string hostKind,
         Func<Layout, bool> contains,
         Func<Layout, OverlaySurfaceHandle> mount)
     {
         ParentComponent = parentComponent;
+        this.hostKind = hostKind;
         this.contains = contains;
         this.mount = mount;
     }
 
     public Component ParentComponent { get; }
     public bool IsPlatformHost { get; private init; }
-    public string HostKind => IsPlatformHost ? "platform-root" : "legacy";
+    public string HostKind => hostKind;
 
     public static OverlaySurfaceHost CreateLegacy(Component parentComponent, AbsoluteLayout containerLayout)
     {
         return new OverlaySurfaceHost(
             parentComponent,
+            "legacy",
             containerLayout.Children.Contains,
             layout =>
             {
@@ -64,7 +68,16 @@ internal sealed class OverlaySurfaceHost
         Func<Layout, bool> contains,
         Func<Layout, OverlaySurfaceHandle> mount)
     {
-        return new OverlaySurfaceHost(parentComponent, contains, mount)
+        return CreatePlatform(parentComponent, "platform-root", contains, mount);
+    }
+
+    public static OverlaySurfaceHost CreatePlatform(
+        Component parentComponent,
+        string hostKind,
+        Func<Layout, bool> contains,
+        Func<Layout, OverlaySurfaceHandle> mount)
+    {
+        return new OverlaySurfaceHost(parentComponent, hostKind, contains, mount)
         {
             IsPlatformHost = true
         };

@@ -25,14 +25,14 @@ internal sealed class OverlaySurfaceResolver
         var parentComponent = latestStackComponent ?? mountedComponent;
         if (OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
                 ownerSurfaceKind,
-                hasPopupOwner: latestPopupComponent is not null,
-                hasActiveNativeModal) &&
+            hasPopupOwner: latestPopupComponent is not null,
+            hasActiveNativeModal) &&
             parentComponent is not null &&
             platformSurfaceProvider is not null &&
-            platformSurfaceProvider.TryCreateRootSurface(parentComponent, out surfaceHost))
+            platformSurfaceProvider.TryCreateSurface(ownerSurfaceKind, parentComponent, out surfaceHost))
         {
             OverlayTraceLog.Write(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=resolver.end host=platform-root reason=ProviderAccepted parent={OverlayTraceLog.DescribeObject(surfaceHost.ParentComponent)}");
+                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=resolver.end host={surfaceHost.HostKind} reason=ProviderAccepted ownerSurface={ownerSurfaceKind} parent={OverlayTraceLog.DescribeObject(surfaceHost.ParentComponent)}");
             return true;
         }
 

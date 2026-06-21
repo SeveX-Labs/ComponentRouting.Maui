@@ -3,6 +3,7 @@ using Android.OS;
 using Android.Util;
 using Android.Views;
 using Android.Widget;
+using ComponentRouting.Maui.Chrome;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Platform;
@@ -16,8 +17,47 @@ namespace ComponentRouting.Maui.Routing;
 internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatformSurfaceProvider
 {
     private const string LogTag = "ComponentRouting.Overlay";
+    private readonly AndroidModalWindowDiscoveryService discovery;
+
+    public AndroidRootOverlayPlatformSurfaceProvider(AndroidModalWindowDiscoveryService discovery)
+    {
+        this.discovery = discovery;
+    }
 
     public bool TryCreateRootSurface(Component parentComponent, out OverlaySurfaceHost surfaceHost)
+    {
+        return TryCreateSurface(OverlaySurfaceKind.Root, parentComponent, out surfaceHost);
+    }
+
+    public bool TryCreateSurface(
+        OverlaySurfaceKind surfaceKind,
+        Component ownerComponent,
+        out OverlaySurfaceHost surfaceHost)
+    {
+        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
+        WriteTrace(
+            $"op={operationId} step=android.provider.surface.requested surface={surfaceKind} provider={OverlayTraceLog.DescribeObject(this)} owner={OverlayTraceLog.DescribeObject(ownerComponent)}");
+
+        return surfaceKind switch
+        {
+            OverlaySurfaceKind.Root => TryCreateRootSurfaceCore(ownerComponent, out surfaceHost),
+            OverlaySurfaceKind.Modal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-modal", out surfaceHost),
+            OverlaySurfaceKind.FullscreenModal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-fullscreen-modal", out surfaceHost),
+            _ => TryRejectUnknownSurface(surfaceKind, out surfaceHost)
+        };
+    }
+
+    private static bool TryRejectUnknownSurface(
+        OverlaySurfaceKind surfaceKind,
+        out OverlaySurfaceHost surfaceHost)
+    {
+        surfaceHost = null!;
+        WriteTrace(
+            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.provider.surface.unavailable surface={surfaceKind} reason=UnsupportedSurface");
+        return false;
+    }
+
+    private bool TryCreateRootSurfaceCore(Component parentComponent, out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
         var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
@@ -35,6 +75,66 @@ internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatfo
         WriteTrace(
             $"op={operationId} step=android.provider.decor {DescribeView(decorView)} parent={OverlayTraceLog.DescribeObject(decorView.Parent)} childCount={decorView.ChildCount}");
 
+        return TryCreateSurfaceForDecorView(
+            "platform-root",
+            parentComponent,
+            decorView,
+            out surfaceHost);
+    }
+
+    private bool TryCreateModalSurface(
+        OverlaySurfaceKind surfaceKind,
+        Component ownerComponent,
+        string hostKind,
+        out OverlaySurfaceHost surfaceHost)
+    {
+        surfaceHost = null!;
+        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
+        WriteTrace(
+            $"op={operationId} step=android.provider.modal.discovery.begin surface={surfaceKind} owner={OverlayTraceLog.DescribeObject(ownerComponent)}");
+
+        var candidates = discovery.FindModalDialogWindows(ownerComponent);
+        WriteTrace(
+            $"op={operationId} step=android.provider.modal.discovery.end surface={surfaceKind} candidateCount={candidates.Count}");
+
+        foreach (var indexedCandidate in candidates.Select((candidate, index) => new { candidate, index }))
+        {
+            WriteTrace(
+                $"op={operationId} step=android.provider.modal.candidate index={indexedCandidate.index} depth={indexedCandidate.candidate.Depth} path={indexedCandidate.candidate.Path} matches={indexedCandidate.candidate.MatchesModalIdentity} isMauiModalNavigationFragment={indexedCandidate.candidate.IsMauiModalNavigationFragment} fragment={indexedCandidate.candidate.FragmentTypeName} decor={DescribeNullableView(indexedCandidate.candidate.DecorView as AView)}");
+        }
+
+        var selected = candidates
+            .Select((candidate, index) => new { candidate, index })
+            .Where(item => item.candidate.DecorView is AViewGroup)
+            .OrderByDescending(item => item.candidate.Depth)
+            .ThenByDescending(item => item.index)
+            .FirstOrDefault();
+
+        if (selected?.candidate.DecorView is not AViewGroup modalDecorView)
+        {
+            WriteTrace(
+                $"op={operationId} step=android.provider.modal.unavailable surface={surfaceKind} reason=NoViewGroupDecorCandidate");
+            return false;
+        }
+
+        WriteTrace(
+            $"op={operationId} step=android.provider.modal.selected surface={surfaceKind} host={hostKind} index={selected.index} depth={selected.candidate.Depth} path={selected.candidate.Path} fragment={selected.candidate.FragmentTypeName} decor={DescribeView(modalDecorView)}");
+
+        return TryCreateSurfaceForDecorView(
+            hostKind,
+            ownerComponent,
+            modalDecorView,
+            out surfaceHost);
+    }
+
+    private static bool TryCreateSurfaceForDecorView(
+        string hostKind,
+        Component parentComponent,
+        AViewGroup decorView,
+        out OverlaySurfaceHost surfaceHost)
+    {
+        surfaceHost = null!;
+        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
         var mauiContext = Microsoft.Maui.Controls.Application.Current?
             .Windows
             .FirstOrDefault()?
@@ -44,17 +144,18 @@ internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatfo
         if (mauiContext is null)
         {
             WriteTrace(
-                $"op={operationId} step=android.provider.unavailable reason=MauiContextNull application={OverlayTraceLog.DescribeObject(Microsoft.Maui.Controls.Application.Current)}");
-            WriteDebug("Root surface unavailable: MauiContext is null.");
+                $"op={operationId} step=android.provider.unavailable host={hostKind} reason=MauiContextNull application={OverlayTraceLog.DescribeObject(Microsoft.Maui.Controls.Application.Current)}");
+            WriteDebug($"{hostKind} surface unavailable: MauiContext is null.");
             return false;
         }
         WriteTrace(
-            $"op={operationId} step=android.provider.mauiContext context={OverlayTraceLog.DescribeObject(mauiContext)} services={OverlayTraceLog.DescribeObject(mauiContext.Services)}");
+            $"op={operationId} step=android.provider.mauiContext host={hostKind} context={OverlayTraceLog.DescribeObject(mauiContext)} services={OverlayTraceLog.DescribeObject(mauiContext.Services)} decor={DescribeView(decorView)}");
 
         AView? mountedView = null;
         FrameLayout? mountedContainer = null;
         surfaceHost = OverlaySurfaceHost.CreatePlatform(
             parentComponent,
+            hostKind,
             layout => mountedView is not null &&
                       mountedContainer is not null &&
                       ReferenceEquals(layout.Handler?.PlatformView, mountedView) &&
@@ -72,10 +173,10 @@ internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatfo
                         $"op={mountOperationId} step=android.mount.begin layout={OverlayTraceLog.DescribeObject(layout)} layoutParent={OverlayTraceLog.DescribeObject(layout.Parent)} layoutHandlerBefore={OverlayTraceLog.DescribeObject(layout.Handler)} decorBefore={DescribeView(decorView)} decorChildCountBefore={decorView.ChildCount}");
                     nativeView = layout.ToPlatform(mauiContext);
                     WriteTrace(
-                        $"op={mountOperationId} step=android.mount.toPlatform native={DescribeNullableView(nativeView)} handler={OverlayTraceLog.DescribeObject(layout.Handler)} nativeParentBefore={OverlayTraceLog.DescribeObject(nativeView.Parent)}");
+                        $"op={mountOperationId} step=android.mount.toPlatform host={hostKind} native={DescribeNullableView(nativeView)} handler={OverlayTraceLog.DescribeObject(layout.Handler)} nativeParentBefore={OverlayTraceLog.DescribeObject(nativeView.Parent)}");
                     overlayContainer = CreateOverlayContainer(decorView);
                     WriteTrace(
-                        $"op={mountOperationId} step=android.mount.container.created container={DescribeView(overlayContainer)} clickable={overlayContainer.Clickable} focusable={overlayContainer.Focusable} layoutParams={DescribeLayoutParams(overlayContainer.LayoutParameters)}");
+                        $"op={mountOperationId} step=android.mount.container.created host={hostKind} container={DescribeView(overlayContainer)} clickable={overlayContainer.Clickable} focusable={overlayContainer.Focusable} layoutParams={DescribeLayoutParams(overlayContainer.LayoutParameters)}");
                     mountedView = nativeView;
                     mountedContainer = overlayContainer;
 
@@ -118,9 +219,9 @@ internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatfo
                         $"op={mountOperationId} step=android.mount.afterLayout decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
                     VerifyMounted(decorView, overlayContainer, nativeView);
                     WriteTrace(
-                        $"op={mountOperationId} step=android.mount.success containerAttached={overlayContainer.Parent == decorView} childAttached={nativeView.Parent == overlayContainer} dimensionsValid={overlayContainer.Width > 0 && overlayContainer.Height > 0 && nativeView.Width > 0 && nativeView.Height > 0} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+                        $"op={mountOperationId} step=android.mount.success host={hostKind} containerAttached={overlayContainer.Parent == decorView} childAttached={nativeView.Parent == overlayContainer} dimensionsValid={overlayContainer.Width > 0 && overlayContainer.Height > 0 && nativeView.Width > 0 && nativeView.Height > 0} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
                     WriteDebug(
-                        $"Root surface mounted: decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}.");
+                        $"{hostKind} surface mounted: decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}.");
 
                     return new OverlaySurfaceHandle(() =>
                     {
@@ -128,16 +229,16 @@ internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatfo
                             $"op={mountOperationId} step=android.unmount.begin container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} decorChildCountBefore={decorView.ChildCount}");
                         Cleanup(layout, nativeView, overlayContainer);
                         WriteTrace(
-                            $"op={mountOperationId} step=android.unmount.end container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} decorChildCountAfter={decorView.ChildCount}");
+                            $"op={mountOperationId} step=android.unmount.end host={hostKind} container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} decorChildCountAfter={decorView.ChildCount}");
                         mountedContainer = null;
                         mountedView = null;
-                    }, "platform-root", mountOperationId);
+                    }, hostKind, mountOperationId);
                 }
                 catch (Exception ex)
                 {
                     WriteTrace(
-                        $"op={mountOperationId} step=android.mount.fail reason=Exception exceptionType={ex.GetType().FullName} message={ex.Message} container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} fallback=legacy");
-                    WriteDebug($"Root surface mount failed: {ex}");
+                        $"op={mountOperationId} step=android.mount.fail host={hostKind} reason=Exception exceptionType={ex.GetType().FullName} message={ex.Message} container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} fallback=legacy");
+                    WriteDebug($"{hostKind} surface mount failed: {ex}");
                     Cleanup(layout, nativeView, overlayContainer);
                     mountedContainer = null;
                     mountedView = null;
