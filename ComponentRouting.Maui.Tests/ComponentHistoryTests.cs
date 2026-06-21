@@ -180,6 +180,33 @@ public class ComponentHistoryTests
     }
 
     [Fact]
+    public void AddPopup_stores_overlay_surface_handle_for_later_dismissal()
+    {
+        var history = new ComponentHistory();
+        var popup = new TestComponent();
+        var handle = new OverlaySurfaceHandle(() => { });
+
+        var item = history.AddPopup(typeof(HostComponent), popup, DateTime.Now, handle);
+
+        Assert.Same(handle, item.OverlaySurfaceHandle);
+    }
+
+    [Fact]
+    public void TryGetItem_returns_overlay_history_item_by_component_reference()
+    {
+        var history = new ComponentHistory();
+        var popup = new TestComponent();
+        var snackbar = new TestComponent();
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now);
+        history.AddSnackbar(typeof(HostComponent), snackbar, DateTime.Now);
+
+        var item = history.TryGetItem(snackbar);
+
+        Assert.NotNull(item);
+        Assert.Same(snackbar, item.Component);
+    }
+
+    [Fact]
     public void GetResumeComponents_dedupes_components_by_reference()
     {
         var component = new TestComponent();

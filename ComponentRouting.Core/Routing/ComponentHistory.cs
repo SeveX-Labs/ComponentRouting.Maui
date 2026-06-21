@@ -14,22 +14,50 @@ internal sealed class ComponentHistory
 
     public ComponentHistoryItem AddSnackbar(Type parentComponentType, Component component)
     {
-        return Add(snackbars, parentComponentType, component, DateTime.Now);
+        return Add(snackbars, parentComponentType, component, DateTime.Now, null);
     }
 
     public ComponentHistoryItem AddPopup(Type parentComponentType, Component component)
     {
-        return Add(popups, parentComponentType, component, DateTime.Now);
+        return Add(popups, parentComponentType, component, DateTime.Now, null);
+    }
+
+    public ComponentHistoryItem AddSnackbar(Type parentComponentType, Component component, OverlaySurfaceHandle overlaySurfaceHandle)
+    {
+        return Add(snackbars, parentComponentType, component, DateTime.Now, overlaySurfaceHandle);
+    }
+
+    public ComponentHistoryItem AddPopup(Type parentComponentType, Component component, OverlaySurfaceHandle overlaySurfaceHandle)
+    {
+        return Add(popups, parentComponentType, component, DateTime.Now, overlaySurfaceHandle);
     }
 
     internal ComponentHistoryItem AddSnackbar(Type parentComponentType, Component component, DateTime timestamp)
     {
-        return Add(snackbars, parentComponentType, component, timestamp);
+        return Add(snackbars, parentComponentType, component, timestamp, null);
     }
 
     internal ComponentHistoryItem AddPopup(Type parentComponentType, Component component, DateTime timestamp)
     {
-        return Add(popups, parentComponentType, component, timestamp);
+        return Add(popups, parentComponentType, component, timestamp, null);
+    }
+
+    internal ComponentHistoryItem AddSnackbar(
+        Type parentComponentType,
+        Component component,
+        DateTime timestamp,
+        OverlaySurfaceHandle? overlaySurfaceHandle)
+    {
+        return Add(snackbars, parentComponentType, component, timestamp, overlaySurfaceHandle);
+    }
+
+    internal ComponentHistoryItem AddPopup(
+        Type parentComponentType,
+        Component component,
+        DateTime timestamp,
+        OverlaySurfaceHandle? overlaySurfaceHandle)
+    {
+        return Add(popups, parentComponentType, component, timestamp, overlaySurfaceHandle);
     }
 
     public ComponentHistoryItem? TryGetLatestSnackbar(Type parentComponentType)
@@ -40,6 +68,13 @@ internal sealed class ComponentHistory
     public ComponentHistoryItem? TryGetLatestPopup(Type parentComponentType)
     {
         return GetLatestItem(popups, parentComponentType);
+    }
+
+    public ComponentHistoryItem? TryGetItem(Component component)
+    {
+        return popups
+            .Concat(snackbars)
+            .FirstOrDefault(item => ReferenceEquals(item.Component, component));
     }
 
     public IReadOnlyList<TComponent> GetMountedOverlayComponents<TComponent>()
@@ -141,9 +176,10 @@ internal sealed class ComponentHistory
         ICollection<ComponentHistoryItem> target,
         Type parentComponentType,
         Component component,
-        DateTime timestamp)
+        DateTime timestamp,
+        OverlaySurfaceHandle? overlaySurfaceHandle)
     {
-        var item = new ComponentHistoryItem(parentComponentType, component, timestamp);
+        var item = new ComponentHistoryItem(parentComponentType, component, timestamp, overlaySurfaceHandle);
         target.Add(item);
         return item;
     }
@@ -180,11 +216,17 @@ internal sealed class ComponentHistoryItem
     public Type ParentComponentType { get; }
     public Component Component { get; }
     public DateTime Timestamp { get; }
+    public OverlaySurfaceHandle? OverlaySurfaceHandle { get; }
 
-    public ComponentHistoryItem(Type parentComponentType, Component component, DateTime timestamp)
+    public ComponentHistoryItem(
+        Type parentComponentType,
+        Component component,
+        DateTime timestamp,
+        OverlaySurfaceHandle? overlaySurfaceHandle = null)
     {
         ParentComponentType = parentComponentType;
         Component = component;
         Timestamp = timestamp;
+        OverlaySurfaceHandle = overlaySurfaceHandle;
     }
 }

@@ -40,6 +40,7 @@ public abstract class AbstractRouter : Router
     protected View SafeAreaBottomPatch { get; set; }
 
     private ComponentHistory History { get; }
+    private OverlaySurfaceResolver OverlaySurfaceResolver { get; }
     // private List<ComponentHistoryItem> Panels { get; set; }
 
     #endregion
@@ -66,6 +67,7 @@ public abstract class AbstractRouter : Router
 
         ComponentsStack = new List<Component>();
         History = new ComponentHistory();
+        OverlaySurfaceResolver = new OverlaySurfaceResolver();
         // Panels = new List<ComponentHistoryItem>();
     }
 
@@ -771,13 +773,17 @@ public abstract class AbstractRouter : Router
             return false;
         }
 
-        if (!TryFindOverlayContainer(out var parentComponent, out var containerLayout))
+        if (!OverlaySurfaceResolver.TryResolveLegacyOverlayHost(
+                History.Popups.LastOrDefault()?.Component,
+                ComponentsStack.LastOrDefault(),
+                MountedComponent,
+                out var surfaceHost))
         {
             Debug.WriteLine("Overlay presentation failed: no available OverlayHost container was found.");
             return false;
         }
 
-        if (containerLayout.Children.Contains(layout))
+        if (surfaceHost.Contains(layout))
         {
             Debug.WriteLine("Overlay presentation skipped: layout is already mounted.");
             return false;
@@ -794,15 +800,11 @@ public abstract class AbstractRouter : Router
         }
         */
 
-        if (component is SnackbarComponent) History.AddSnackbar(parentComponent.GetType(), component);
-        else History.AddPopup(parentComponent.GetType(), component);
+        var surfaceHandle = surfaceHost.Mount(layout);
 
-        AbsoluteLayout.SetLayoutFlags(layout, AbsoluteLayoutFlags.All);
-        AbsoluteLayout.SetLayoutBounds(layout, new Rect(0, 0, 1, 1));
-        layout.IsVisible = false;
-        containerLayout.Children.Add(layout);
-        layout.ZIndex = 10;
-        layout.IsVisible = true;
+        if (component is SnackbarComponent) History.AddSnackbar(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
+        else History.AddPopup(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
+
         return true;
     }
 
@@ -841,6 +843,15 @@ public abstract class AbstractRouter : Router
 
     private void DismissOverlayComponent(Component component)
     {
+        var historyItem = History.TryGetItem(component);
+
+        if (historyItem?.OverlaySurfaceHandle is not null)
+        {
+            historyItem.OverlaySurfaceHandle.Unmount();
+            History.Remove(component);
+            return;
+        }
+
         AbsoluteLayout? containerLayout = null;
         Component? parentComponent = null;
 
