@@ -78,7 +78,7 @@ public class OverlaySurfaceOwnershipTests
     [Fact]
     public void OverlaySurfaceDecisionPolicy_allows_root_platform_surface_for_root()
     {
-        Assert.True(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.True(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.Root,
             hasPopupOwner: false,
             hasActiveNativeModal: false));
@@ -87,15 +87,7 @@ public class OverlaySurfaceOwnershipTests
     [Fact]
     public void OverlaySurfaceDecisionPolicy_rejects_root_platform_surface_for_non_root_surfaces()
     {
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
-            OverlaySurfaceKind.Modal,
-            hasPopupOwner: false,
-            hasActiveNativeModal: false));
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
-            OverlaySurfaceKind.FullscreenModal,
-            hasPopupOwner: false,
-            hasActiveNativeModal: false));
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.Unknown,
             hasPopupOwner: false,
             hasActiveNativeModal: false));
@@ -104,31 +96,52 @@ public class OverlaySurfaceOwnershipTests
     [Fact]
     public void OverlaySurfaceDecisionPolicy_rejects_root_platform_surface_when_popup_owner_exists()
     {
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.Root,
             hasPopupOwner: true,
             hasActiveNativeModal: false));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
+            OverlaySurfaceKind.Modal,
+            hasPopupOwner: true,
+            hasActiveNativeModal: true));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
+            OverlaySurfaceKind.FullscreenModal,
+            hasPopupOwner: true,
+            hasActiveNativeModal: true));
     }
 
     [Fact]
     public void OverlaySurfaceDecisionPolicy_rejects_root_platform_surface_when_native_modal_is_active()
     {
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.Root,
             hasPopupOwner: false,
             hasActiveNativeModal: true));
     }
 
     [Fact]
-    public void OverlaySurfaceDecisionPolicy_keeps_modal_surfaces_on_legacy_in_phase_3a()
+    public void OverlaySurfaceDecisionPolicy_allows_modal_surfaces_when_native_modal_is_active()
     {
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.True(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.Modal,
             hasPopupOwner: false,
             hasActiveNativeModal: true));
-        Assert.False(OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        Assert.True(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
             OverlaySurfaceKind.FullscreenModal,
             hasPopupOwner: false,
             hasActiveNativeModal: true));
+    }
+
+    [Fact]
+    public void OverlaySurfaceDecisionPolicy_rejects_modal_surfaces_when_native_modal_is_not_active()
+    {
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
+            OverlaySurfaceKind.Modal,
+            hasPopupOwner: false,
+            hasActiveNativeModal: false));
+        Assert.False(OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
+            OverlaySurfaceKind.FullscreenModal,
+            hasPopupOwner: false,
+            hasActiveNativeModal: false));
     }
 }

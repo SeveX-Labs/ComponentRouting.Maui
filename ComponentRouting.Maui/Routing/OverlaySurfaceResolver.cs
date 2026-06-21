@@ -23,10 +23,10 @@ internal sealed class OverlaySurfaceResolver
         }
 
         var parentComponent = latestStackComponent ?? mountedComponent;
-        if (OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(
+        if (OverlaySurfaceDecisionPolicy.CanUsePlatformSurface(
                 ownerSurfaceKind,
-            hasPopupOwner: latestPopupComponent is not null,
-            hasActiveNativeModal) &&
+                hasPopupOwner: latestPopupComponent is not null,
+                hasActiveNativeModal) &&
             parentComponent is not null &&
             platformSurfaceProvider is not null &&
             platformSurfaceProvider.TryCreateSurface(ownerSurfaceKind, parentComponent, out surfaceHost))
