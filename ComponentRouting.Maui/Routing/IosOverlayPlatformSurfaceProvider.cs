@@ -51,36 +51,6 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         return false;
     }
 
-    private bool TryCreateRootSurfaceDiscoveryOnly(Component parentComponent, out OverlaySurfaceHost surfaceHost)
-    {
-        surfaceHost = null!;
-        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
-        OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.root.discoveryOnly.begin provider={OverlayTraceLog.DescribeObject(this)} parent={OverlayTraceLog.DescribeObject(parentComponent)} connectedSceneCount={UIApplication.SharedApplication.ConnectedScenes.Count} scenes={DescribeConnectedScenes()}");
-
-        var window = discovery.ResolveRootWindow();
-        var candidates = window is null
-            ? Array.Empty<IosOverlaySurfaceDiscoveryService.IosPresentedControllerCandidate>()
-            : discovery.FindPresentedControllerCandidates(window);
-        var topPresented = candidates.LastOrDefault();
-        var rootController = window?.RootViewController;
-        var rootView = rootController?.IsViewLoaded == true ? rootController.View : null;
-
-        OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.root.discoveryOnly.window window={DescribeNullableView(window)} rootController={DescribeController(rootController)} rootViewCandidate={DescribeNullableView(rootView)} presentedCandidateCount={candidates.Count()} topPresentedController={OverlayTraceLog.DescribeObject(topPresented?.Controller)} topPresentedSurfaceController={OverlayTraceLog.DescribeObject(topPresented?.SurfaceController)} topPresentedView={DescribeNullableView(topPresented?.SurfaceView)}");
-
-        if (window is null)
-        {
-            OverlayTraceLog.Write(
-                $"op={operationId} step=ios.provider.root.discoveryOnly.end success=false reason=WindowNull fallback=legacy");
-            return false;
-        }
-
-        OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.root.discoveryOnly.end success=true reason=DiscoveryOnlyReturningFalse fallback=legacy");
-        return false;
-    }
-
     private bool TryCreateRootSurfaceCore(Component parentComponent, out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;

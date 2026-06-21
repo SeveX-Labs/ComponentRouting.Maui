@@ -833,7 +833,7 @@ public abstract class AbstractRouter : Router
             $"ownerSurface={ownerSurfaceKind} " +
             $"hasActiveNativeModal={hasActiveNativeModal} " +
             $"stack={OverlayStackDescription()} " +
-            $"host={(surfaceHost.IsPlatformHost ? "platform-root" : "legacy")} " +
+            $"host={surfaceHost.HostKind} " +
             $"parent={surfaceHost.ParentComponent.GetType().FullName}");
         LogOverlaySurfaceTrace(
             $"op={operationId} step=present.host selected={surfaceHost.HostKind} parent={DescribeComponent(surfaceHost.ParentComponent)} containsBefore={surfaceHost.Contains(layout)}");
@@ -1332,6 +1332,7 @@ public abstract class AbstractRouter : Router
                 {
                     containerLayout.Children.Remove(layout);
                 }
+                OverlaySurfaceHost.PrepareLegacyContainer(containerLayout);
 
                 if (parentComponent is not null)
                 {
