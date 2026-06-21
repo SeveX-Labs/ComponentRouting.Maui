@@ -773,10 +773,12 @@ public abstract class AbstractRouter : Router
             return false;
         }
 
-        if (!OverlaySurfaceResolver.TryResolveLegacyOverlayHost(
+        if (!OverlaySurfaceResolver.TryResolveOverlaySurface(
                 History.Popups.LastOrDefault()?.Component,
                 ComponentsStack.LastOrDefault(),
                 MountedComponent,
+                HasActiveModal(),
+                GetOverlayPlatformSurfaceProvider(),
                 out var surfaceHost))
         {
             Debug.WriteLine("Overlay presentation failed: no available OverlayHost container was found.");
@@ -800,12 +802,98 @@ public abstract class AbstractRouter : Router
         }
         */
 
-        var surfaceHandle = surfaceHost.Mount(layout);
+        ApplySnackbarDefaultLayout(component);
+
+        var surfaceHandle = TryMountOverlaySurface(surfaceHost, layout);
+        if (surfaceHandle is null)
+            return false;
 
         if (component is SnackbarComponent) History.AddSnackbar(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
         else History.AddPopup(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
 
         return true;
+    }
+
+    private static void ApplySnackbarDefaultLayout(Component component)
+    {
+        if (component is not SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter })
+            return;
+
+        snackbarPresenter.HorizontalOptions = LayoutOptions.Fill;
+        snackbarPresenter.VerticalOptions = LayoutOptions.Fill;
+
+        foreach (var child in snackbarPresenter.Children)
+        {
+            if (child is not View childView)
+                continue;
+
+            var flags = AbsoluteLayout.GetLayoutFlags(childView);
+            var bounds = AbsoluteLayout.GetLayoutBounds(childView);
+
+            if (flags != AbsoluteLayoutFlags.None ||
+                bounds.Width != AbsoluteLayout.AutoSize ||
+                bounds.Height != AbsoluteLayout.AutoSize)
+            {
+                continue;
+            }
+
+            AbsoluteLayout.SetLayoutFlags(
+                childView,
+                AbsoluteLayoutFlags.WidthProportional);
+            AbsoluteLayout.SetLayoutBounds(
+                childView,
+                new Rect(0, 0, 1, AbsoluteLayout.AutoSize));
+            childView.HorizontalOptions = LayoutOptions.Fill;
+            childView.VerticalOptions = LayoutOptions.Start;
+        }
+    }
+
+    private OverlaySurfaceHandle? TryMountOverlaySurface(OverlaySurfaceHost surfaceHost, Layout layout)
+    {
+        try
+        {
+            return surfaceHost.Mount(layout);
+        }
+        catch (Exception ex) when (surfaceHost.IsPlatformHost)
+        {
+            Debug.WriteLine($"Overlay platform surface mount failed, falling back to legacy host: {ex}");
+        }
+
+        if (!OverlaySurfaceResolver.TryResolveLegacyOverlayHost(
+                History.Popups.LastOrDefault()?.Component,
+                ComponentsStack.LastOrDefault(),
+                MountedComponent,
+                out var legacySurfaceHost))
+        {
+            Debug.WriteLine("Overlay presentation failed: platform surface failed and no legacy OverlayHost container was found.");
+            return null;
+        }
+
+        if (legacySurfaceHost.Contains(layout))
+        {
+            Debug.WriteLine("Overlay presentation skipped: layout is already mounted on fallback legacy host.");
+            return null;
+        }
+
+        return legacySurfaceHost.Mount(layout);
+    }
+
+    private IOverlayPlatformSurfaceProvider? GetOverlayPlatformSurfaceProvider()
+    {
+        var serviceProvider = Application.Current?
+            .Windows
+            .FirstOrDefault()?
+            .Page?
+            .Handler?
+            .MauiContext?
+            .Services;
+
+        return serviceProvider?.GetService(typeof(IOverlayPlatformSurfaceProvider)) as IOverlayPlatformSurfaceProvider;
+    }
+
+    private bool HasActiveModal()
+    {
+        return GetCurrentNavigation(useGlobalNavigation: true)?.ModalStack.Any() == true;
     }
 
     private bool TryFindOverlayContainer(out Component parentComponent, out AbsoluteLayout containerLayout)

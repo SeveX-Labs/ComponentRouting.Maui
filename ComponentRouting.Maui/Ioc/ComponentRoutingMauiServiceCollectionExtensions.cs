@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using ComponentRouting.Maui.Abstraction;
 using ComponentRouting.Maui.Chrome;
+using ComponentRouting.Maui.Routing;
 
 namespace ComponentRouting.Maui.Ioc;
 
@@ -22,6 +23,7 @@ internal static class ComponentRoutingMauiServiceCollectionExtensions
         services.TryAddSingleton(chromeConfiguration);
         services.TryAddSingleton<ComponentChromeOptionsResolver>();
         services.TryAddSingleton<ComponentChromeService, NoOpComponentChromeService>();
+        services.TryAddSingleton<IOverlayPlatformSurfaceProvider, NoOpOverlayPlatformSurfaceProvider>();
 #if ANDROID
         services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
         services.TryAddSingleton<AndroidWindowChromeApplier>();

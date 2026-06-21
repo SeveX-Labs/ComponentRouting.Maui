@@ -5,6 +5,7 @@ namespace ComponentRouting.Maui.Routing;
 internal sealed class OverlaySurfaceHandle
 {
     private readonly Action unmount;
+    private bool didUnmount;
 
     public OverlaySurfaceHandle(Action unmount)
     {
@@ -13,6 +14,10 @@ internal sealed class OverlaySurfaceHandle
 
     public void Unmount()
     {
+        if (didUnmount)
+            return;
+
+        didUnmount = true;
         unmount();
     }
 }

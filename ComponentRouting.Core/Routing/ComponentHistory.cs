@@ -196,6 +196,9 @@ internal sealed class ComponentHistory
 
     private static IReadOnlyList<Component> Clear(ICollection<ComponentHistoryItem> source)
     {
+        foreach (var item in source)
+            item.OverlaySurfaceHandle?.Unmount();
+
         var components = source.Select(item => item.Component).ToList();
         source.Clear();
         return components;

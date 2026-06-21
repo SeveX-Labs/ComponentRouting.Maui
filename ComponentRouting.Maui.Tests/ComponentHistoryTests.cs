@@ -207,6 +207,23 @@ public class ComponentHistoryTests
     }
 
     [Fact]
+    public void ClearPopups_unmounts_saved_overlay_surface_handles()
+    {
+        var history = new ComponentHistory();
+        var popup = new TestComponent();
+        var unmountCount = 0;
+        var handle = new OverlaySurfaceHandle(() => unmountCount++);
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now, handle);
+
+        var components = history.ClearPopups();
+        handle.Unmount();
+
+        Assert.Same(popup, Assert.Single(components));
+        Assert.Equal(1, unmountCount);
+        Assert.Empty(history.Popups);
+    }
+
+    [Fact]
     public void GetResumeComponents_dedupes_components_by_reference()
     {
         var component = new TestComponent();
