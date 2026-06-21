@@ -35,8 +35,8 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         return surfaceKind switch
         {
             OverlaySurfaceKind.Root => TryCreateRootSurfaceCore(ownerComponent, out surfaceHost),
-            OverlaySurfaceKind.Modal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
-            OverlaySurfaceKind.FullscreenModal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
+            OverlaySurfaceKind.Modal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-modal", out surfaceHost),
+            OverlaySurfaceKind.FullscreenModal => TryCreateModalSurface(surfaceKind, ownerComponent, "platform-fullscreen-modal", out surfaceHost),
             _ => TryRejectUnknownSurface(surfaceKind, out surfaceHost)
         };
     }
@@ -48,16 +48,6 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         surfaceHost = null!;
         OverlayTraceLog.Write(
             $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=UnsupportedSurface");
-        return false;
-    }
-
-    private static bool TryRejectDisabledModalSurface(
-        OverlaySurfaceKind surfaceKind,
-        out OverlaySurfaceHost surfaceHost)
-    {
-        surfaceHost = null!;
-        OverlayTraceLog.Write(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=ModalSurfaceDisabledInPhase4B2 fallback=legacy");
         return false;
     }
 
@@ -158,12 +148,12 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
 
         var selected = candidates
             .Select((candidate, index) => new { candidate, index })
-            .Where(item => item.candidate.SurfaceView is not null)
             .OrderByDescending(item => item.candidate.Depth)
             .ThenByDescending(item => item.index)
-            .FirstOrDefault();
+            .FirstOrDefault(item => TryResolveModalParentView(item.candidate, out _, out _));
 
-        if (selected?.candidate.SurfaceView is not { } modalView)
+        if (selected is null ||
+            !TryResolveModalParentView(selected.candidate, out var modalView, out var parentKind))
         {
             OverlayTraceLog.Write(
                 $"op={operationId} step=ios.provider.modal.unavailable surface={surfaceKind} reason=NoPresentedViewCandidate");
@@ -171,14 +161,14 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         }
 
         OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.modal.selected surface={surfaceKind} host={hostKind} index={selected.index} depth={selected.candidate.Depth} controller={OverlayTraceLog.DescribeObject(selected.candidate.Controller)} surfaceController={OverlayTraceLog.DescribeObject(selected.candidate.SurfaceController)} view={DescribeView(modalView)}");
+            $"op={operationId} step=ios.provider.modal.selected surface={surfaceKind} host={hostKind} index={selected.index} depth={selected.candidate.Depth} parentKind={parentKind} controller={OverlayTraceLog.DescribeObject(selected.candidate.Controller)} surfaceController={OverlayTraceLog.DescribeObject(selected.candidate.SurfaceController)} view={DescribeView(modalView)}");
 
         return TryCreateSurfaceForParentView(
             hostKind,
             ownerComponent,
             window,
             modalView,
-            "PresentedControllerView",
+            parentKind,
             out surfaceHost);
     }
 
@@ -375,6 +365,87 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         {
             parentView = window;
             parentKind = "Window";
+            return true;
+        }
+
+        parentView = null!;
+        parentKind = "None";
+        return false;
+    }
+
+    private static bool TryResolveModalParentView(
+        IosOverlaySurfaceDiscoveryService.IosPresentedControllerCandidate candidate,
+        out UIView parentView,
+        out string parentKind)
+    {
+        if (candidate.Controller is UINavigationController navigationController)
+        {
+            if (TryResolveValidControllerView(
+                    navigationController.VisibleViewController,
+                    "NavigationVisibleViewController",
+                    out parentView,
+                    out parentKind))
+            {
+                return true;
+            }
+
+            if (TryResolveValidControllerView(
+                    navigationController.TopViewController,
+                    "NavigationTopViewController",
+                    out parentView,
+                    out parentKind))
+            {
+                return true;
+            }
+
+            if (TryResolveValidControllerView(
+                    navigationController,
+                    "NavigationControllerView",
+                    out parentView,
+                    out parentKind))
+            {
+                return true;
+            }
+        }
+
+        if (TryResolveValidControllerView(
+                candidate.SurfaceController,
+                "PresentedSurfaceControllerView",
+                out parentView,
+                out parentKind))
+        {
+            return true;
+        }
+
+        if (TryResolveValidControllerView(
+                candidate.Controller,
+                "PresentedControllerView",
+                out parentView,
+                out parentKind))
+        {
+            return true;
+        }
+
+        parentView = null!;
+        parentKind = "None";
+        return false;
+    }
+
+    private static bool TryResolveValidControllerView(
+        UIViewController? controller,
+        string candidateKind,
+        out UIView parentView,
+        out string parentKind)
+    {
+        if (controller?.IsViewLoaded == true &&
+            controller.View is { } view &&
+            view.Window is not null &&
+            HasValidBounds(view) &&
+            !view.Hidden &&
+            view.Alpha > 0)
+        {
+            parentView = view;
+            parentKind = candidateKind;
             return true;
         }
 
