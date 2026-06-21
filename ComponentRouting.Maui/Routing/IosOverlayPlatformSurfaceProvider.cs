@@ -34,7 +34,7 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
 
         return surfaceKind switch
         {
-            OverlaySurfaceKind.Root => TryCreateRootSurfaceDiscoveryOnly(ownerComponent, out surfaceHost),
+            OverlaySurfaceKind.Root => TryCreateRootSurfaceCore(ownerComponent, out surfaceHost),
             OverlaySurfaceKind.Modal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
             OverlaySurfaceKind.FullscreenModal => TryRejectDisabledModalSurface(surfaceKind, out surfaceHost),
             _ => TryRejectUnknownSurface(surfaceKind, out surfaceHost)
@@ -57,7 +57,7 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
     {
         surfaceHost = null!;
         OverlayTraceLog.Write(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=ModalSurfaceDisabledInPhase4B1 fallback=legacy");
+            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.provider.surface.unavailable surface={surfaceKind} reason=ModalSurfaceDisabledInPhase4B2 fallback=legacy");
         return false;
     }
 
@@ -96,11 +96,11 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         surfaceHost = null!;
         var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
         OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.root.discovery.begin provider={OverlayTraceLog.DescribeObject(this)} parent={OverlayTraceLog.DescribeObject(parentComponent)}");
+            $"op={operationId} step=ios.provider.root.discovery.begin provider={OverlayTraceLog.DescribeObject(this)} parent={OverlayTraceLog.DescribeObject(parentComponent)} connectedSceneCount={UIApplication.SharedApplication.ConnectedScenes.Count} scenes={DescribeConnectedScenes()}");
 
         var window = discovery.ResolveRootWindow();
         OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.root.discovery.end window={DescribeNullableView(window)} rootController={OverlayTraceLog.DescribeObject(window?.RootViewController)}");
+            $"op={operationId} step=ios.provider.root.discovery.end window={DescribeNullableView(window)} rootController={DescribeController(window?.RootViewController)}");
 
         if (window is null)
         {
@@ -109,10 +109,21 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
             return false;
         }
 
+        if (!TryResolveRootParentView(window, out var parentView, out var parentKind))
+        {
+            OverlayTraceLog.Write(
+                $"op={operationId} step=ios.provider.unavailable host=platform-root reason=NoValidRootParentView window={DescribeView(window)} rootController={DescribeController(window.RootViewController)}");
+            return false;
+        }
+
+        OverlayTraceLog.Write(
+            $"op={operationId} step=ios.provider.root.parent.selected host=platform-root parentKind={parentKind} parent={DescribeView(parentView)}");
         return TryCreateSurfaceForParentView(
             "platform-root",
             parentComponent,
             window,
+            parentView,
+            parentKind,
             out surfaceHost);
     }
 
@@ -165,14 +176,18 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         return TryCreateSurfaceForParentView(
             hostKind,
             ownerComponent,
+            window,
             modalView,
+            "PresentedControllerView",
             out surfaceHost);
     }
 
     private static bool TryCreateSurfaceForParentView(
         string hostKind,
         Component parentComponent,
+        UIWindow window,
         UIView parentView,
+        string parentKind,
         out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
@@ -192,7 +207,7 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         }
 
         OverlayTraceLog.Write(
-            $"op={operationId} step=ios.provider.mauiContext host={hostKind} context={OverlayTraceLog.DescribeObject(mauiContext)} services={OverlayTraceLog.DescribeObject(mauiContext.Services)} parent={DescribeView(parentView)}");
+            $"op={operationId} step=ios.provider.mauiContext host={hostKind} parentKind={parentKind} context={OverlayTraceLog.DescribeObject(mauiContext)} services={OverlayTraceLog.DescribeObject(mauiContext.Services)} window={DescribeView(window)} parent={DescribeView(parentView)}");
 
         UIView? mountedView = null;
         UIView? mountedContainer = null;
@@ -213,7 +228,7 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
                 try
                 {
                     OverlayTraceLog.Write(
-                        $"op={mountOperationId} step=ios.mount.begin host={hostKind} layout={OverlayTraceLog.DescribeObject(layout)} layoutParent={OverlayTraceLog.DescribeObject(layout.Parent)} layoutHandlerBefore={OverlayTraceLog.DescribeObject(layout.Handler)} parentBefore={DescribeView(parentView)} parentSubviewCountBefore={parentView.Subviews.Length}");
+                        $"op={mountOperationId} step=ios.mount.begin host={hostKind} parentKind={parentKind} layout={OverlayTraceLog.DescribeObject(layout)} layoutParent={OverlayTraceLog.DescribeObject(layout.Parent)} layoutHandlerBefore={OverlayTraceLog.DescribeObject(layout.Handler)} parentBefore={DescribeView(parentView)} parentSubviewCountBefore={parentView.Subviews.Length}");
 
                     nativeView = layout.ToPlatform(mauiContext);
                     OverlayTraceLog.Write(
@@ -240,11 +255,14 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
                         $"op={mountOperationId} step=ios.mount.child.added host={hostKind} child={DescribeView(nativeView)} childParent={OverlayTraceLog.DescribeObject(nativeView.Superview)} containerSubviewCount={overlayContainer.Subviews.Length}");
 
                     OverlayTraceLog.Write(
-                        $"op={mountOperationId} step=ios.mount.beforeLayout parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
-                    ForceLayoutPass(parentView, overlayContainer, nativeView);
+                        $"op={mountOperationId} step=ios.mount.beforeLayoutRequest parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+                    RequestLayoutPass(parentView, overlayContainer, nativeView);
                     OverlayTraceLog.Write(
-                        $"op={mountOperationId} step=ios.mount.afterLayout parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+                        $"op={mountOperationId} step=ios.mount.afterLayoutRequest parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
                     VerifyMounted(parentView, overlayContainer, nativeView);
+                    overlayContainer.UserInteractionEnabled = true;
+                    OverlayTraceLog.Write(
+                        $"op={mountOperationId} step=ios.mount.enableInput host={hostKind} container={DescribeView(overlayContainer)} userInteraction={overlayContainer.UserInteractionEnabled}");
                     OverlayTraceLog.Write(
                         $"op={mountOperationId} step=ios.mount.success host={hostKind} containerAttached={overlayContainer.Superview == parentView} childAttached={nativeView.Superview == overlayContainer} dimensionsValid={HasValidBounds(overlayContainer) && HasValidBounds(nativeView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
 
@@ -282,20 +300,17 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
             BackgroundColor = UIColor.Clear,
             Hidden = false,
             Alpha = 1,
-            UserInteractionEnabled = true
+            UserInteractionEnabled = false
         };
     }
 
-    private static void ForceLayoutPass(UIView parentView, UIView overlayContainer, UIView nativeView)
+    private static void RequestLayoutPass(UIView parentView, UIView overlayContainer, UIView nativeView)
     {
         overlayContainer.Frame = parentView.Bounds;
         nativeView.Frame = overlayContainer.Bounds;
         overlayContainer.SetNeedsLayout();
         nativeView.SetNeedsLayout();
         parentView.SetNeedsLayout();
-        overlayContainer.LayoutIfNeeded();
-        nativeView.LayoutIfNeeded();
-        parentView.LayoutIfNeeded();
     }
 
     private static void VerifyMounted(UIView parentView, UIView overlayContainer, UIView nativeView)
@@ -326,12 +341,46 @@ internal sealed class IosOverlayPlatformSurfaceProvider : IOverlayPlatformSurfac
         if (!HasValidBounds(nativeView))
             throw new InvalidOperationException($"iOS overlay child has invalid bounds: {DescribeView(nativeView)}");
 
-        if (parentView.Window is null)
-            OverlayTraceLog.Write(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.verify.warning reason=ParentWindowNull parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+        if (parentView.Window is null && parentView is not UIWindow)
+            throw new InvalidOperationException($"iOS overlay parent is not attached to a window: {DescribeView(parentView)}");
 
         OverlayTraceLog.Write(
             $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=ios.verify.success parent={DescribeView(parentView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+    }
+
+    private static bool TryResolveRootParentView(
+        UIWindow window,
+        out UIView parentView,
+        out string parentKind)
+    {
+        var rootController = window.RootViewController;
+        var rootView = rootController?.IsViewLoaded == true
+            ? rootController.View
+            : null;
+
+        if (rootView is not null &&
+            rootView.Window is not null &&
+            HasValidBounds(rootView) &&
+            !rootView.Hidden &&
+            rootView.Alpha > 0)
+        {
+            parentView = rootView;
+            parentKind = "RootControllerView";
+            return true;
+        }
+
+        if (HasValidBounds(window) &&
+            !window.Hidden &&
+            window.Alpha > 0)
+        {
+            parentView = window;
+            parentKind = "Window";
+            return true;
+        }
+
+        parentView = null!;
+        parentKind = "None";
+        return false;
     }
 
     private static void Cleanup(Layout layout, UIView? nativeView, UIView? overlayContainer)
