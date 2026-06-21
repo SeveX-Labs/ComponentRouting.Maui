@@ -1,4 +1,5 @@
 using ComponentRouting.Maui.Abstraction;
+using ComponentRouting.Maui.Sample.Components;
 using ComponentRouting.Maui.Sample.Components.Overlays;
 using ComponentRouting.Maui.Sample.Components.Snackbars;
 using ComponentRouting.Maui.Sample.Presenters.Pushables;
@@ -48,6 +49,7 @@ public sealed class OverlayMatrixPushComponent : PushableComponent<OverlayMatrix
 
     private Task ShowOverlay()
     {
+        OverlayMatrixTraceLog.Click(state.SurfaceName == "push inside modal" ? "PushInsideModal" : "Push", $"Show overlay from {state.SurfaceName}", this);
         if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
@@ -61,6 +63,7 @@ public sealed class OverlayMatrixPushComponent : PushableComponent<OverlayMatrix
 
     private Task ShowSnackbar()
     {
+        OverlayMatrixTraceLog.Click(state.SurfaceName == "push inside modal" ? "PushInsideModal" : "Push", $"Show snackbar from {state.SurfaceName}", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration($"Snackbar from {state.SurfaceName}", false, 0));
         return Task.CompletedTask;
@@ -68,12 +71,14 @@ public sealed class OverlayMatrixPushComponent : PushableComponent<OverlayMatrix
 
     private Task CloseOverlay()
     {
+        OverlayMatrixTraceLog.Click(state.SurfaceName == "push inside modal" ? "PushInsideModal" : "Push", $"Close overlay from {state.SurfaceName}", this);
         router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
         return Task.CompletedTask;
     }
 
     private async Task Close()
     {
+        OverlayMatrixTraceLog.Click(state.SurfaceName == "push inside modal" ? "PushInsideModal" : "Push", $"Close {state.SurfaceName}", this);
         await router.DismissComponent<OverlayMatrixPushComponent, ComponentState, bool>(true);
         CompletionSource?.TrySetResult(true);
     }

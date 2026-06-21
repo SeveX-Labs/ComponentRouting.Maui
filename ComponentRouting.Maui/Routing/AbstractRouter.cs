@@ -230,7 +230,7 @@ public abstract class AbstractRouter : Router
         CurrentTabComponent = null;
         CurrentFlyoutComponent = null;
         MountedComponent = null;
-        OverlaySurfaceOwnership.Clear();
+        OverlaySurfaceOwnership.Clear("UnpresentRootComponent");
 
         return Task.CompletedTask;
     }
@@ -274,12 +274,12 @@ public abstract class AbstractRouter : Router
             }
             else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
             {
-                OverlaySurfaceOwnership.Remove(component);
+                OverlaySurfaceOwnership.Remove(component, "HandleComponentResultTab");
                 CurrentTabComponent = null;
             }
             else if (component.IsSubclassOfRawGeneric(typeof(FlyoutComponent<>)))
             {
-                OverlaySurfaceOwnership.Remove(component);
+                OverlaySurfaceOwnership.Remove(component, "HandleComponentResultFlyout");
                 CurrentFlyoutComponent = null;
             }
 
@@ -327,7 +327,7 @@ public abstract class AbstractRouter : Router
                     MountedComponent = rootComponent;
                     CurrentTabComponent = null;
                     CurrentFlyoutComponent = null;
-                    OverlaySurfaceOwnership.Set(rootComponent, OverlaySurfaceKind.Root);
+                    OverlaySurfaceOwnership.Set(rootComponent, OverlaySurfaceKind.Root, "RootMounted");
                     didPresent = true;
                 }
             }
@@ -339,13 +339,13 @@ public abstract class AbstractRouter : Router
         else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
         {
             CurrentTabComponent = component;
-            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root, "TabMounted");
             didPresent = true;
         }
         else if (component.IsSubclassOfRawGeneric(typeof(FlyoutComponent<>)))
         {
             CurrentFlyoutComponent = component;
-            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root, "FlyoutMounted");
             didPresent = true;
         }
         else if (component.IsSubclassOfRawGeneric(typeof(OverlayComponent<,>)))
@@ -357,7 +357,7 @@ public abstract class AbstractRouter : Router
             if (component.Presenter is null)
                 throw new RouterException(RouterError.MissingPresenter, component);
 
-            OverlaySurfaceOwnership.Set(component, ResolveNextStackSurface());
+            OverlaySurfaceOwnership.Set(component, ResolveNextStackSurface(), "PushableInherited");
             ComponentsStack.Add(component);
             await PushComponentInternal(component);
             didPresent = true;
@@ -367,7 +367,7 @@ public abstract class AbstractRouter : Router
             if (component.Presenter is null)
                 throw new RouterException(RouterError.MissingPresenter, component);
 
-            OverlaySurfaceOwnership.Set(component, ToOverlaySurfaceKind(presentationKind));
+            OverlaySurfaceOwnership.Set(component, ToOverlaySurfaceKind(presentationKind), presentationKind == ComponentPresentationKind.FullscreenModal ? "FullscreenModalPresented" : "ModalPresented");
             ComponentsStack.Add(component);
             await PushModalComponentInternal(component);
             didPresent = true;
@@ -399,7 +399,7 @@ public abstract class AbstractRouter : Router
             MountedComponent = component;
             CurrentTabComponent = null;
             CurrentFlyoutComponent = null;
-            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root, "PageMounted");
             didPresent = true;
         }
 
@@ -775,27 +775,62 @@ public abstract class AbstractRouter : Router
 
     private bool PresentOverlayComponent(Component component)
     {
+        var operationId = OverlayTraceLog.NewOperationId(component is SnackbarComponent ? "snackbar" : "overlay");
+        var previousOperationId = OverlayTraceLog.CurrentOperationId;
+        OverlayTraceLog.CurrentOperationId = operationId;
+        try
+        {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.begin component={DescribeComponent(component)} kind={(component is SnackbarComponent ? "snackbar" : "overlay")} stateType={GetComponentGenericArgument(component, 0)} resultType={GetComponentGenericArgument(component, 1)} presenter={DescribeObject(component.Presenter)} mounted={DescribeComponent(MountedComponent)} currentTab={DescribeComponent(CurrentTabComponent)} currentFlyout={DescribeComponent(CurrentFlyoutComponent)} latestStack={DescribeComponent(ComponentsStack.LastOrDefault())} latestPopup={DescribeComponent(History.Popups.LastOrDefault()?.Component)} latestSnackbar={DescribeComponent(History.Snackbars.LastOrDefault()?.Component)}");
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.navigation {DescribeNavigationState(GetCurrentNavigation(useGlobalNavigation: true))}");
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.components {DescribeComponentsStack()}");
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.history.before {DescribeOverlayHistory()}");
+
         if (component.Presenter is not Layout layout)
         {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.fail reason=PresenterIsNotLayout presenter={DescribeObject(component.Presenter)}");
             Debug.WriteLine("Overlay presentation failed: presenter is null or not a Layout.");
             return false;
         }
 
-        var ownerSurfaceKind = ResolveOverlayOwnerSurface();
+        var ownerComponent = ResolveOverlayOwnerComponent();
+        var ownerSurfaceKind = ResolveOverlayOwnerSurface(ownerComponent);
+        var hasActiveNativeModal = HasActiveNativeModal();
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=present.owner owner={DescribeComponent(ownerComponent)} ownerSurface={ownerSurfaceKind} ownerLookup={DescribeOwnerSurface(ownerComponent)} hasActiveNativeModal={hasActiveNativeModal} popupOwner={DescribeComponent(History.Popups.LastOrDefault()?.Component)} layout={DescribeLayout(layout)}");
         if (!OverlaySurfaceResolver.TryResolveOverlaySurface(
                 History.Popups.LastOrDefault()?.Component,
                 ComponentsStack.LastOrDefault(),
                 MountedComponent,
                 ownerSurfaceKind,
+                hasActiveNativeModal,
                 GetOverlayPlatformSurfaceProvider(),
                 out var surfaceHost))
         {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.fail reason=NoOverlayHost owner={DescribeComponent(ownerComponent)} ownerSurface={ownerSurfaceKind}");
             Debug.WriteLine("Overlay presentation failed: no available OverlayHost container was found.");
             return false;
         }
+        LogOverlaySurfaceDiagnostics(
+            $"component={component.GetType().FullName} " +
+            $"owner={ownerComponent?.GetType().FullName ?? "null"} " +
+            $"ownerSurface={ownerSurfaceKind} " +
+            $"hasActiveNativeModal={hasActiveNativeModal} " +
+            $"stack={OverlayStackDescription()} " +
+            $"host={(surfaceHost.IsPlatformHost ? "platform-root" : "legacy")} " +
+            $"parent={surfaceHost.ParentComponent.GetType().FullName}");
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=present.host selected={surfaceHost.HostKind} parent={DescribeComponent(surfaceHost.ParentComponent)} containsBefore={surfaceHost.Contains(layout)}");
 
         if (surfaceHost.Contains(layout))
         {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.skip reason=LayoutAlreadyMounted host={surfaceHost.HostKind} layout={DescribeLayout(layout)}");
             Debug.WriteLine("Overlay presentation skipped: layout is already mounted.");
             return false;
         }
@@ -812,27 +847,51 @@ public abstract class AbstractRouter : Router
         */
 
         ApplySnackbarDefaultLayout(component);
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=present.layout.afterDefaults layout={DescribeLayout(layout)}");
 
         var surfaceMount = TryMountOverlaySurface(surfaceHost, layout);
         if (surfaceMount is null)
+        {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=present.fail reason=MountReturnedNull layout={DescribeLayout(layout)}");
             return false;
+        }
+        ApplySnackbarPlatformSafeArea(component, surfaceMount.SurfaceHost);
 
-        OverlaySurfaceOwnership.Set(component, ownerSurfaceKind);
+        OverlaySurfaceOwnership.Set(component, ownerSurfaceKind, component is SnackbarComponent ? "SnackbarPresented" : "OverlayPresented");
         if (component is SnackbarComponent)
+        {
             History.AddSnackbar(
                 surfaceMount.SurfaceHost.ParentComponent.GetType(),
                 component,
                 surfaceMount.SurfaceHandle);
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=history.added kind=snackbar component={DescribeComponent(component)} parentType={surfaceMount.SurfaceHost.ParentComponent.GetType().FullName} host={surfaceMount.SurfaceHost.HostKind} handle={DescribeObject(surfaceMount.SurfaceHandle)} handleHost={surfaceMount.SurfaceHandle.HostKind}");
+        }
         else
+        {
             History.AddPopup(
                 surfaceMount.SurfaceHost.ParentComponent.GetType(),
                 component,
                 surfaceMount.SurfaceHandle);
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=history.added kind=popup component={DescribeComponent(component)} parentType={surfaceMount.SurfaceHost.ParentComponent.GetType().FullName} host={surfaceMount.SurfaceHost.HostKind} handle={DescribeObject(surfaceMount.SurfaceHandle)} handleHost={surfaceMount.SurfaceHandle.HostKind}");
+        }
 
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=present.history.after {DescribeOverlayHistory()}");
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=present.end result=true host={surfaceMount.SurfaceHost.HostKind} layout={DescribeLayout(layout)}");
         return true;
+        }
+        finally
+        {
+            OverlayTraceLog.CurrentOperationId = previousOperationId;
+        }
     }
 
-    private static void ApplySnackbarDefaultLayout(Component component)
+    private void ApplySnackbarDefaultLayout(Component component)
     {
         if (component is not SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter })
             return;
@@ -863,18 +922,98 @@ public abstract class AbstractRouter : Router
                 new Rect(0, 0, 1, AbsoluteLayout.AutoSize));
             childView.HorizontalOptions = LayoutOptions.Fill;
             childView.VerticalOptions = LayoutOptions.Start;
+
+            LogOverlaySurfaceTrace(
+                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=snackbar.defaultLayout child={DescribeObject(childView)} bounds={AbsoluteLayout.GetLayoutBounds(childView)} flags={AbsoluteLayout.GetLayoutFlags(childView)} margin={childView.Margin} horizontal={childView.HorizontalOptions} vertical={childView.VerticalOptions}");
         }
     }
 
+    private void ApplySnackbarPlatformSafeArea(Component component, OverlaySurfaceHost surfaceHost)
+    {
+        if (component is not SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter })
+            return;
+
+        var topInset = GetSnackbarTopInset(surfaceHost);
+        if (topInset <= 0)
+        {
+            LogOverlaySurfaceTrace(
+                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=snackbar.safeArea.skip host={surfaceHost.HostKind} topInset={topInset}");
+            return;
+        }
+
+        foreach (var child in snackbarPresenter.Children)
+        {
+            if (child is not View childView)
+                continue;
+
+            var flags = AbsoluteLayout.GetLayoutFlags(childView);
+            var bounds = AbsoluteLayout.GetLayoutBounds(childView);
+            if (!flags.HasFlag(AbsoluteLayoutFlags.WidthProportional) ||
+                bounds.Y != 0 ||
+                bounds.Height != AbsoluteLayout.AutoSize)
+            {
+                continue;
+            }
+
+            var margin = childView.Margin;
+            childView.Margin = new Thickness(
+                margin.Left,
+                Math.Max(margin.Top, topInset),
+                margin.Right,
+                margin.Bottom);
+            snackbarPresenter.InvalidateMeasure();
+
+            LogOverlaySurfaceTrace(
+                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=snackbar.safeArea.applied host={surfaceHost.HostKind} topInset={topInset} child={DescribeObject(childView)} bounds={AbsoluteLayout.GetLayoutBounds(childView)} flags={AbsoluteLayout.GetLayoutFlags(childView)} margin={childView.Margin}");
+        }
+    }
+
+    private double GetSnackbarTopInset(OverlaySurfaceHost surfaceHost)
+    {
+        if (!surfaceHost.IsPlatformHost)
+            return 0;
+
+        var configuredTopInset = SafeAreaInsetsService.GetSafeAreaInsets(true).Top;
+#if ANDROID
+        return Math.Max(configuredTopInset, GetAndroidStatusBarInset());
+#else
+        return configuredTopInset;
+#endif
+    }
+
+#if ANDROID
+    private static double GetAndroidStatusBarInset()
+    {
+        var activity = Platform.CurrentActivity;
+        var density = DeviceDisplay.MainDisplayInfo.Density;
+        if (density <= 0)
+            density = 1;
+
+        var resourceId = activity?.Resources?.GetIdentifier("status_bar_height", "dimen", "android") ?? 0;
+        if (resourceId > 0 && activity?.Resources is { } resources)
+            return resources.GetDimensionPixelSize(resourceId) / density;
+
+        return 0;
+    }
+#endif
+
     private OverlaySurfaceMount? TryMountOverlaySurface(OverlaySurfaceHost surfaceHost, Layout layout)
     {
+        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
         try
         {
-            return new OverlaySurfaceMount(surfaceHost, surfaceHost.Mount(layout));
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=mount.begin host={surfaceHost.HostKind} parent={DescribeComponent(surfaceHost.ParentComponent)} layout={DescribeLayout(layout)}");
+            var handle = surfaceHost.Mount(layout);
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=mount.success host={surfaceHost.HostKind} handle={DescribeObject(handle)} handleHost={handle.HostKind} layout={DescribeLayout(layout)}");
+            return new OverlaySurfaceMount(surfaceHost, handle);
         }
         catch (Exception ex) when (surfaceHost.IsPlatformHost)
         {
-            Debug.WriteLine($"Overlay platform surface mount failed, falling back to legacy host: {ex}");
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=mount.fail host=platform-root fallback=legacy reason=Exception exceptionType={ex.GetType().FullName} message={ex.Message}");
+            LogOverlaySurfaceDiagnostics($"platform mount failed; falling back to legacy host: {ex}");
         }
 
         if (!OverlaySurfaceResolver.TryResolveLegacyOverlayHost(
@@ -883,22 +1022,142 @@ public abstract class AbstractRouter : Router
                 MountedComponent,
                 out var legacySurfaceHost))
         {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=mount.fallback.fail reason=NoLegacyOverlayHost layout={DescribeLayout(layout)}");
             Debug.WriteLine("Overlay presentation failed: platform surface failed and no legacy OverlayHost container was found.");
             return null;
         }
 
+        LogOverlaySurfaceDiagnostics(
+            $"fallback resolved host=legacy parent={legacySurfaceHost.ParentComponent.GetType().FullName}");
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=mount.fallback.resolved fallback=legacy reason=PlatformMountFailed parent={DescribeComponent(legacySurfaceHost.ParentComponent)} containsBefore={legacySurfaceHost.Contains(layout)}");
         if (legacySurfaceHost.Contains(layout))
         {
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=mount.fallback.skip reason=LayoutAlreadyMounted layout={DescribeLayout(layout)}");
             Debug.WriteLine("Overlay presentation skipped: layout is already mounted on fallback legacy host.");
             return null;
         }
 
-        return new OverlaySurfaceMount(legacySurfaceHost, legacySurfaceHost.Mount(layout));
+        var legacyHandle = legacySurfaceHost.Mount(layout);
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=mount.fallback.success host=legacy handle={DescribeObject(legacyHandle)} handleHost={legacyHandle.HostKind} layout={DescribeLayout(layout)}");
+        return new OverlaySurfaceMount(legacySurfaceHost, legacyHandle);
     }
 
     private sealed record OverlaySurfaceMount(
         OverlaySurfaceHost SurfaceHost,
         OverlaySurfaceHandle SurfaceHandle);
+
+    [Conditional("DEBUG")]
+    private static void LogOverlaySurfaceDiagnostics(string message)
+    {
+#if ANDROID
+        Android.Util.Log.Debug("ComponentRouting.Overlay", $"[ComponentRouting][OverlaySurface] {message}");
+#else
+        Debug.WriteLine($"[ComponentRouting][OverlaySurface] {message}");
+#endif
+    }
+
+    [Conditional("DEBUG")]
+    private static void LogOverlaySurfaceTrace(string message)
+    {
+#if ANDROID
+        Android.Util.Log.Debug("ComponentRouting.Overlay", $"[ComponentRouting][OverlayTrace] {message}");
+#else
+        Debug.WriteLine($"[ComponentRouting][OverlayTrace] {message}");
+#endif
+    }
+
+    private static string DescribeObject(object? value)
+    {
+        return OverlayTraceLog.DescribeObject(value);
+    }
+
+    private static string DescribeComponent(Component? component)
+    {
+        if (component is null)
+            return "null";
+
+        return $"{DescribeObject(component)} presenter={DescribeObject(component.Presenter)}";
+    }
+
+    private static string DescribeLayout(Layout layout)
+    {
+        return $"{DescribeObject(layout)} parent={DescribeObject(layout.Parent)} visible={layout.IsVisible} width={layout.Width} height={layout.Height} minWidth={layout.MinimumWidthRequest} minHeight={layout.MinimumHeightRequest} horizontal={layout.HorizontalOptions} vertical={layout.VerticalOptions} bounds={AbsoluteLayout.GetLayoutBounds(layout)} flags={AbsoluteLayout.GetLayoutFlags(layout)} zIndex={layout.ZIndex}";
+    }
+
+    private string DescribeOwnerSurface(Component? component)
+    {
+        if (component is null)
+            return "component=null";
+
+        var found = OverlaySurfaceOwnership.TryGet(component, out var surfaceKind);
+        return $"component={DescribeComponent(component)} found={found} surface={(found ? surfaceKind : OverlaySurfaceKind.Unknown)}";
+    }
+
+    private static string GetComponentGenericArgument(Component component, int index)
+    {
+        var type = component.GetType();
+        var current = type;
+        while (current is not null)
+        {
+            if (current.IsGenericType)
+            {
+                var args = current.GetGenericArguments();
+                if (index >= 0 && index < args.Length)
+                    return args[index].FullName ?? args[index].Name;
+            }
+
+            current = current.BaseType;
+        }
+
+        return "unknown";
+    }
+
+    private string DescribeComponentsStack()
+    {
+        if (!ComponentsStack.Any())
+            return "stack=empty";
+
+        return "stack=" + string.Join(" | ", ComponentsStack.Select((component, index) =>
+        {
+            var found = OverlaySurfaceOwnership.TryGet(component, out var surfaceKind);
+            return $"[{index}]={DescribeComponent(component)} surfaceFound={found} surface={(found ? surfaceKind : OverlaySurfaceKind.Unknown)}";
+        }));
+    }
+
+    private string DescribeOverlayHistory()
+    {
+        return $"popups={DescribeHistoryItems(History.Popups)} snackbars={DescribeHistoryItems(History.Snackbars)}";
+    }
+
+    private static string DescribeHistoryItems(IReadOnlyList<ComponentHistoryItem> items)
+    {
+        if (items.Count == 0)
+            return "empty";
+
+        return string.Join(" | ", items.Select((item, index) =>
+            $"[{index}] component={DescribeComponent(item.Component)} parentType={item.ParentComponentType.FullName} handle={DescribeObject(item.OverlaySurfaceHandle)} handleHost={item.OverlaySurfaceHandle?.HostKind ?? "unknown"}"));
+    }
+
+    private static string DescribeNavigationState(INavigation? navigation)
+    {
+        if (navigation is null)
+            return "navigation=null";
+
+        return $"navigation={DescribeObject(navigation)} navigationStackCount={navigation.NavigationStack.Count} modalStackCount={navigation.ModalStack.Count} navigationStack={DescribePages(navigation.NavigationStack)} modalStack={DescribePages(navigation.ModalStack)}";
+    }
+
+    private static string DescribePages(IReadOnlyList<Page> pages)
+    {
+        if (pages.Count == 0)
+            return "empty";
+
+        return string.Join(" | ", pages.Select((page, index) =>
+            $"[{index}]={DescribeObject(page)} handler={DescribeObject(page.Handler)} platform={DescribeObject(page.Handler?.PlatformView)}"));
+    }
 
     private IOverlayPlatformSurfaceProvider? GetOverlayPlatformSurfaceProvider()
     {
@@ -913,15 +1172,22 @@ public abstract class AbstractRouter : Router
         return serviceProvider?.GetService(typeof(IOverlayPlatformSurfaceProvider)) as IOverlayPlatformSurfaceProvider;
     }
 
-    private OverlaySurfaceKind ResolveOverlayOwnerSurface()
+    private Component? ResolveOverlayOwnerComponent()
     {
-        if (History.Popups.LastOrDefault()?.Component is { } latestPopupComponent &&
-            OverlaySurfaceOwnership.TryGet(latestPopupComponent, out var latestPopupSurfaceKind))
+        return History.Popups.LastOrDefault()?.Component ??
+               ComponentsStack.LastOrDefault() ??
+               MountedComponent;
+    }
+
+    private OverlaySurfaceKind ResolveOverlayOwnerSurface(Component? ownerComponent)
+    {
+        if (ownerComponent is not null &&
+            OverlaySurfaceOwnership.TryGet(ownerComponent, out var ownerSurfaceKind))
         {
-            return latestPopupSurfaceKind;
+            return ownerSurfaceKind;
         }
 
-        return OverlaySurfaceOwnership.GetInheritedSurface(ComponentsStack.LastOrDefault() ?? MountedComponent);
+        return OverlaySurfaceOwnership.GetInheritedSurface(ownerComponent);
     }
 
     private OverlaySurfaceKind ResolveNextStackSurface()
@@ -941,7 +1207,25 @@ public abstract class AbstractRouter : Router
         if (ComponentsStack.Contains(component))
             ComponentsStack.Remove(component);
 
-        OverlaySurfaceOwnership.Remove(component);
+        OverlaySurfaceOwnership.Remove(component, "RemoveFromComponentsStack");
+    }
+
+    private bool HasActiveNativeModal()
+    {
+        return GetCurrentNavigation(useGlobalNavigation: true)?.ModalStack.Any() == true;
+    }
+
+    private string OverlayStackDescription()
+    {
+        return ComponentsStack.Any()
+            ? string.Join(" > ", ComponentsStack.Select(component =>
+            {
+                var surface = OverlaySurfaceOwnership.TryGet(component, out var surfaceKind)
+                    ? surfaceKind.ToString()
+                    : "unregistered";
+                return $"{component.GetType().Name}:{surface}";
+            }))
+            : "empty";
     }
 
     private bool TryFindOverlayContainer(out Component parentComponent, out AbsoluteLayout containerLayout)
@@ -980,12 +1264,17 @@ public abstract class AbstractRouter : Router
     private void DismissOverlayComponent(Component component)
     {
         var historyItem = History.TryGetItem(component);
+        var operationId = historyItem?.OverlaySurfaceHandle?.OperationId ?? OverlayTraceLog.CurrentOperationId ?? "none";
+        LogOverlaySurfaceTrace(
+            $"op={operationId} step=dismiss.begin component={DescribeComponent(component)} historyItemFound={historyItem is not null} handle={DescribeObject(historyItem?.OverlaySurfaceHandle)} handleHost={historyItem?.OverlaySurfaceHandle?.HostKind ?? "unknown"} history={DescribeOverlayHistory()}");
 
         if (historyItem?.OverlaySurfaceHandle is not null)
         {
             historyItem.OverlaySurfaceHandle.Unmount();
             History.Remove(component);
-            OverlaySurfaceOwnership.Remove(component);
+            OverlaySurfaceOwnership.Remove(component, "DismissOverlayComponentHandle");
+            LogOverlaySurfaceTrace(
+                $"op={operationId} step=dismiss.end path=handle component={DescribeComponent(component)} history={DescribeOverlayHistory()}");
             return;
         }
 
@@ -1025,6 +1314,8 @@ public abstract class AbstractRouter : Router
 
             if (containerLayout is not null)
             {
+                LogOverlaySurfaceTrace(
+                    $"op={operationId} step=dismiss.legacyManual.begin component={DescribeComponent(component)} parent={DescribeComponent(parentComponent)} container={DescribeObject(containerLayout)} contains={containerLayout.Children.Contains(layout)} layout={DescribeLayout(layout)}");
                 layout.IsVisible = false;
                 if (containerLayout.Children.Contains(layout))
                 {
@@ -1034,8 +1325,15 @@ public abstract class AbstractRouter : Router
                 if (parentComponent is not null)
                 {
                     History.Remove(component);
-                    OverlaySurfaceOwnership.Remove(component);
+                    OverlaySurfaceOwnership.Remove(component, "DismissOverlayComponentLegacy");
                 }
+                LogOverlaySurfaceTrace(
+                    $"op={operationId} step=dismiss.legacyManual.end component={DescribeComponent(component)} parent={DescribeComponent(parentComponent)} container={DescribeObject(containerLayout)} contains={containerLayout.Children.Contains(layout)} history={DescribeOverlayHistory()}");
+            }
+            else
+            {
+                LogOverlaySurfaceTrace(
+                    $"op={operationId} step=dismiss.fail reason=MountedContainerNotFound component={DescribeComponent(component)} layout={DescribeLayout(layout)}");
             }
         }
     }

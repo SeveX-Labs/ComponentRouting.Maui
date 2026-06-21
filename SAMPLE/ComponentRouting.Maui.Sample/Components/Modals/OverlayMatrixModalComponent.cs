@@ -1,4 +1,5 @@
 using ComponentRouting.Maui.Abstraction;
+using ComponentRouting.Maui.Sample.Components;
 using ComponentRouting.Maui.Sample.Components.Overlays;
 using ComponentRouting.Maui.Sample.Components.Pushables;
 using ComponentRouting.Maui.Sample.Components.Snackbars;
@@ -47,6 +48,7 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
 
     private Task ShowOverlay()
     {
+        OverlayMatrixTraceLog.Click("Modal", "Show overlay from modal", this);
         if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
@@ -60,6 +62,7 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
 
     private Task ShowSnackbar()
     {
+        OverlayMatrixTraceLog.Click("Modal", "Show snackbar from modal", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration("Snackbar from modal", false, 0));
         return Task.CompletedTask;
@@ -67,6 +70,7 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
 
     private async Task OpenPushInsideModal()
     {
+        OverlayMatrixTraceLog.Click("Modal", "Open push inside modal overlay demo", this);
         await router.PresentComponent<OverlayMatrixPushComponent, OverlayMatrixPushComponent.ComponentState, bool>(
             new OverlayMatrixPushComponent.ComponentState(
                 "Push inside modal",
@@ -76,12 +80,14 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
 
     private Task CloseOverlay()
     {
+        OverlayMatrixTraceLog.Click("Modal", "Close overlay from modal", this);
         router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
         return Task.CompletedTask;
     }
 
     private void Close()
     {
+        OverlayMatrixTraceLog.Click("Modal", "Close modal overlay demo", this);
         CompletionSource?.TrySetResult(true);
     }
 }

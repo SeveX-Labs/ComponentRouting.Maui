@@ -1,4 +1,5 @@
 using ComponentRouting.Maui.Abstraction;
+using ComponentRouting.Maui.Sample.Components;
 using ComponentRouting.Maui.Sample.Components.Base;
 using ComponentRouting.Maui.Sample.Components.Modals;
 using ComponentRouting.Maui.Sample.Components.Overlays;
@@ -78,6 +79,7 @@ public sealed class HomeComponent : SampleTabComponent<bool>
 
     private Task ShowMatrixRootOverlay()
     {
+        OverlayMatrixTraceLog.Click("Root", "Show overlay from root", this);
         if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
@@ -92,6 +94,7 @@ public sealed class HomeComponent : SampleTabComponent<bool>
 
     private Task ShowMatrixRootSnackbar()
     {
+        OverlayMatrixTraceLog.Click("Root", "Show snackbar from root", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration("Snackbar from root", false, 0));
         UpdateMountedCounts();
@@ -100,6 +103,7 @@ public sealed class HomeComponent : SampleTabComponent<bool>
 
     private async Task OpenPushOverlayDemo()
     {
+        OverlayMatrixTraceLog.Click("Root", "Open push overlay demo", this);
         var result = await router.PresentComponent<OverlayMatrixPushComponent, OverlayMatrixPushComponent.ComponentState, bool>(
             new OverlayMatrixPushComponent.ComponentState(
                 "Push overlay demo",
@@ -111,6 +115,7 @@ public sealed class HomeComponent : SampleTabComponent<bool>
 
     private async Task OpenModalOverlayDemo()
     {
+        OverlayMatrixTraceLog.Click("Root", "Open modal overlay demo", this);
         var result = await router.PresentComponent<OverlayMatrixModalComponent, OverlayMatrixModalComponent.ComponentState, bool>(
             new OverlayMatrixModalComponent.ComponentState(
                 "Modal overlay demo",

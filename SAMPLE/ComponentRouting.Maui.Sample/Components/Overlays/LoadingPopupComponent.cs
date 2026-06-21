@@ -21,7 +21,10 @@ public sealed class LoadingPopupComponent : OverlayComponent<LoadingPopupCompone
 
     protected override Task Initialize(ComponentState state)
     {
-        ((LoadingPopupPresenter)Presenter!).Initialize(state.Title, state.Message);
+        ((LoadingPopupPresenter)Presenter!).Initialize(
+            state.Title,
+            state.Message,
+            () => CompletionSource?.TrySetResult(true));
         return Task.CompletedTask;
     }
 

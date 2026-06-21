@@ -16,6 +16,8 @@
             <Label x:Name="MessageLabel"
                    HorizontalTextAlignment="Center"
                    LineBreakMode="WordWrap" />
+            <Button Text="Close"
+                    Clicked="HandleCloseClicked" />
         </VerticalStackLayout>
     </Border>
 </Grid>
