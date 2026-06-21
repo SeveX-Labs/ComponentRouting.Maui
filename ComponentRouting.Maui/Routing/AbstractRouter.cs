@@ -405,6 +405,7 @@ public abstract class AbstractRouter : Router
 
         if (didPresent)
         {
+            PrepareLegacyOverlayHost(component);
             ApplyComponentSafeAreaPolicy(component, presentationKind);
             RegisterComponentChromeLifecycle("AfterPresentComponent", component, presentationKind);
             ApplyComponentChrome("AfterPresentComponent", component, presentationKind);
@@ -494,6 +495,16 @@ public abstract class AbstractRouter : Router
             var catalog = await CatalogProvider.GetLocalCatalog();
             await localizableComponent.ApplyLocalization(catalog);
         }
+    }
+
+    private static void PrepareLegacyOverlayHost(Component component)
+    {
+        if (component.Presenter is not OverlayHost { OverlayContainer: not null } overlayHost)
+            return;
+
+        OverlaySurfaceHost.PrepareLegacyContainer(overlayHost.OverlayContainer);
+        OverlayTraceLog.Write(
+            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=legacyOverlay.prepare component={DescribeComponent(component)} container={DescribeObject(overlayHost.OverlayContainer)} childCount={overlayHost.OverlayContainer.Children.Count} visible={overlayHost.OverlayContainer.IsVisible} inputTransparent={overlayHost.OverlayContainer.InputTransparent}");
     }
 
     private ComponentHistoryItem? TryAndGetLatestHistorySnackbar(Type parentComponentType)
