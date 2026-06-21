@@ -8,7 +8,7 @@ internal sealed class OverlaySurfaceResolver
         Component? latestPopupComponent,
         Component? latestStackComponent,
         Component? mountedComponent,
-        bool hasActiveModal,
+        OverlaySurfaceKind ownerSurfaceKind,
         IOverlayPlatformSurfaceProvider? platformSurfaceProvider,
         out OverlaySurfaceHost surfaceHost)
     {
@@ -16,7 +16,7 @@ internal sealed class OverlaySurfaceResolver
             return true;
 
         var parentComponent = latestStackComponent ?? mountedComponent;
-        if (!hasActiveModal &&
+        if (OverlaySurfaceDecisionPolicy.CanUseRootPlatformSurface(ownerSurfaceKind) &&
             parentComponent is not null &&
             platformSurfaceProvider is not null &&
             platformSurfaceProvider.TryCreateRootSurface(parentComponent, out surfaceHost))

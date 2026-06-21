@@ -41,6 +41,7 @@ public abstract class AbstractRouter : Router
 
     private ComponentHistory History { get; }
     private OverlaySurfaceResolver OverlaySurfaceResolver { get; }
+    private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
     // private List<ComponentHistoryItem> Panels { get; set; }
 
     #endregion
@@ -68,6 +69,7 @@ public abstract class AbstractRouter : Router
         ComponentsStack = new List<Component>();
         History = new ComponentHistory();
         OverlaySurfaceResolver = new OverlaySurfaceResolver();
+        OverlaySurfaceOwnership = new OverlaySurfaceOwnershipRegistry();
         // Panels = new List<ComponentHistoryItem>();
     }
 
@@ -228,6 +230,7 @@ public abstract class AbstractRouter : Router
         CurrentTabComponent = null;
         CurrentFlyoutComponent = null;
         MountedComponent = null;
+        OverlaySurfaceOwnership.Clear();
 
         return Task.CompletedTask;
     }
@@ -271,15 +274,16 @@ public abstract class AbstractRouter : Router
             }
             else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
             {
+                OverlaySurfaceOwnership.Remove(component);
                 CurrentTabComponent = null;
             }
             else if (component.IsSubclassOfRawGeneric(typeof(FlyoutComponent<>)))
             {
+                OverlaySurfaceOwnership.Remove(component);
                 CurrentFlyoutComponent = null;
             }
 
-            if (ComponentsStack.Contains(component))
-                ComponentsStack.Remove(component);
+            RemoveFromComponentsStack(component);
 
             component.Dispose();
         }
@@ -323,6 +327,7 @@ public abstract class AbstractRouter : Router
                     MountedComponent = rootComponent;
                     CurrentTabComponent = null;
                     CurrentFlyoutComponent = null;
+                    OverlaySurfaceOwnership.Set(rootComponent, OverlaySurfaceKind.Root);
                     didPresent = true;
                 }
             }
@@ -334,11 +339,13 @@ public abstract class AbstractRouter : Router
         else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
         {
             CurrentTabComponent = component;
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
             didPresent = true;
         }
         else if (component.IsSubclassOfRawGeneric(typeof(FlyoutComponent<>)))
         {
             CurrentFlyoutComponent = component;
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
             didPresent = true;
         }
         else if (component.IsSubclassOfRawGeneric(typeof(OverlayComponent<,>)))
@@ -350,6 +357,7 @@ public abstract class AbstractRouter : Router
             if (component.Presenter is null)
                 throw new RouterException(RouterError.MissingPresenter, component);
 
+            OverlaySurfaceOwnership.Set(component, ResolveNextStackSurface());
             ComponentsStack.Add(component);
             await PushComponentInternal(component);
             didPresent = true;
@@ -359,6 +367,7 @@ public abstract class AbstractRouter : Router
             if (component.Presenter is null)
                 throw new RouterException(RouterError.MissingPresenter, component);
 
+            OverlaySurfaceOwnership.Set(component, ToOverlaySurfaceKind(presentationKind));
             ComponentsStack.Add(component);
             await PushModalComponentInternal(component);
             didPresent = true;
@@ -390,6 +399,7 @@ public abstract class AbstractRouter : Router
             MountedComponent = component;
             CurrentTabComponent = null;
             CurrentFlyoutComponent = null;
+            OverlaySurfaceOwnership.Set(component, OverlaySurfaceKind.Root);
             didPresent = true;
         }
 
@@ -732,8 +742,7 @@ public abstract class AbstractRouter : Router
         if (stack.Last() != component.Presenter)
             throw new RouterException(RouterError.PresenterIsNotOnTopNavigationStack, component);
 
-        if (ComponentsStack.Contains(component))
-            ComponentsStack.Remove(component);
+        RemoveFromComponentsStack(component);
 
         await navigation.PopAsync(animated);
     }
@@ -758,8 +767,7 @@ public abstract class AbstractRouter : Router
         if (!ok)
             throw new RouterException(RouterError.PresenterIsNotOnTopModalStack, component);
 
-        if (ComponentsStack.Contains(component))
-            ComponentsStack.Remove(component);
+        RemoveFromComponentsStack(component);
 
         await navigation.PopModalAsync(animated);
         return true;
@@ -773,11 +781,12 @@ public abstract class AbstractRouter : Router
             return false;
         }
 
+        var ownerSurfaceKind = ResolveOverlayOwnerSurface();
         if (!OverlaySurfaceResolver.TryResolveOverlaySurface(
                 History.Popups.LastOrDefault()?.Component,
                 ComponentsStack.LastOrDefault(),
                 MountedComponent,
-                HasActiveModal(),
+                ownerSurfaceKind,
                 GetOverlayPlatformSurfaceProvider(),
                 out var surfaceHost))
         {
@@ -808,6 +817,7 @@ public abstract class AbstractRouter : Router
         if (surfaceHandle is null)
             return false;
 
+        OverlaySurfaceOwnership.Set(component, ownerSurfaceKind);
         if (component is SnackbarComponent) History.AddSnackbar(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
         else History.AddPopup(surfaceHost.ParentComponent.GetType(), component, surfaceHandle);
 
@@ -891,9 +901,35 @@ public abstract class AbstractRouter : Router
         return serviceProvider?.GetService(typeof(IOverlayPlatformSurfaceProvider)) as IOverlayPlatformSurfaceProvider;
     }
 
-    private bool HasActiveModal()
+    private OverlaySurfaceKind ResolveOverlayOwnerSurface()
     {
-        return GetCurrentNavigation(useGlobalNavigation: true)?.ModalStack.Any() == true;
+        if (History.Popups.LastOrDefault()?.Component is { } latestPopupComponent &&
+            OverlaySurfaceOwnership.TryGet(latestPopupComponent, out var latestPopupSurfaceKind))
+        {
+            return latestPopupSurfaceKind;
+        }
+
+        return OverlaySurfaceOwnership.GetInheritedSurface(ComponentsStack.LastOrDefault() ?? MountedComponent);
+    }
+
+    private OverlaySurfaceKind ResolveNextStackSurface()
+    {
+        return OverlaySurfaceOwnership.GetInheritedSurface(ComponentsStack.LastOrDefault() ?? MountedComponent);
+    }
+
+    private static OverlaySurfaceKind ToOverlaySurfaceKind(ComponentPresentationKind presentationKind)
+    {
+        return presentationKind == ComponentPresentationKind.FullscreenModal
+            ? OverlaySurfaceKind.FullscreenModal
+            : OverlaySurfaceKind.Modal;
+    }
+
+    private void RemoveFromComponentsStack(Component component)
+    {
+        if (ComponentsStack.Contains(component))
+            ComponentsStack.Remove(component);
+
+        OverlaySurfaceOwnership.Remove(component);
     }
 
     private bool TryFindOverlayContainer(out Component parentComponent, out AbsoluteLayout containerLayout)
@@ -937,6 +973,7 @@ public abstract class AbstractRouter : Router
         {
             historyItem.OverlaySurfaceHandle.Unmount();
             History.Remove(component);
+            OverlaySurfaceOwnership.Remove(component);
             return;
         }
 
@@ -985,6 +1022,7 @@ public abstract class AbstractRouter : Router
                 if (parentComponent is not null)
                 {
                     History.Remove(component);
+                    OverlaySurfaceOwnership.Remove(component);
                 }
             }
         }
