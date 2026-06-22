@@ -145,24 +145,16 @@ internal sealed class ComponentHistory
         var snackbarHistoryItem = snackbars.FirstOrDefault(item => ReferenceEquals(item.Component, component));
         if (snackbarHistoryItem is not null)
         {
-            var removed = snackbars.Remove(snackbarHistoryItem);
-            OverlayTraceLog.Write(
-                $"op={snackbarHistoryItem.OverlaySurfaceHandle?.OperationId ?? OverlayTraceLog.CurrentOperationId ?? "none"} step=history.remove kind=snackbar removed={removed} component={OverlayTraceLog.DescribeObject(component)} handle={OverlayTraceLog.DescribeObject(snackbarHistoryItem.OverlaySurfaceHandle)} handleHost={snackbarHistoryItem.OverlaySurfaceHandle?.HostKind ?? "unknown"} popupCount={popups.Count} snackbarCount={snackbars.Count}");
-            return removed;
+            return snackbars.Remove(snackbarHistoryItem);
         }
 
         var popupHistoryItem = popups.FirstOrDefault(item => ReferenceEquals(item.Component, component));
         if (popupHistoryItem is null)
         {
-            OverlayTraceLog.Write(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=history.remove kind=unknown removed=false component={OverlayTraceLog.DescribeObject(component)} popupCount={popups.Count} snackbarCount={snackbars.Count}");
             return false;
         }
 
-        var popupRemoved = popups.Remove(popupHistoryItem);
-        OverlayTraceLog.Write(
-            $"op={popupHistoryItem.OverlaySurfaceHandle?.OperationId ?? OverlayTraceLog.CurrentOperationId ?? "none"} step=history.remove kind=popup removed={popupRemoved} component={OverlayTraceLog.DescribeObject(component)} handle={OverlayTraceLog.DescribeObject(popupHistoryItem.OverlaySurfaceHandle)} handleHost={popupHistoryItem.OverlaySurfaceHandle?.HostKind ?? "unknown"} popupCount={popups.Count} snackbarCount={snackbars.Count}");
-        return popupRemoved;
+        return popups.Remove(popupHistoryItem);
     }
 
     public IReadOnlyList<Component> ClearSnackbars()
@@ -201,8 +193,6 @@ internal sealed class ComponentHistory
     {
         var item = new ComponentHistoryItem(parentComponentType, component, timestamp, overlaySurfaceHandle);
         target.Add(item);
-        OverlayTraceLog.Write(
-            $"op={overlaySurfaceHandle?.OperationId ?? OverlayTraceLog.CurrentOperationId ?? "none"} step=history.add kind={GetHistoryKind(target)} parentType={parentComponentType.FullName} component={OverlayTraceLog.DescribeObject(component)} handle={OverlayTraceLog.DescribeObject(overlaySurfaceHandle)} handleHost={overlaySurfaceHandle?.HostKind ?? "unknown"} count={target.Count}");
         return item;
     }
 
@@ -218,19 +208,13 @@ internal sealed class ComponentHistory
 
     private IReadOnlyList<Component> Clear(ICollection<ComponentHistoryItem> source)
     {
-        OverlayTraceLog.Write(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=history.clear.begin kind={GetHistoryKind(source)} count={source.Count}");
         foreach (var item in source)
         {
-            OverlayTraceLog.Write(
-                $"op={item.OverlaySurfaceHandle?.OperationId ?? OverlayTraceLog.CurrentOperationId ?? "none"} step=history.clear.unmount kind={GetHistoryKind(source)} component={OverlayTraceLog.DescribeObject(item.Component)} handle={OverlayTraceLog.DescribeObject(item.OverlaySurfaceHandle)} handleHost={item.OverlaySurfaceHandle?.HostKind ?? "unknown"}");
             item.OverlaySurfaceHandle?.Unmount();
         }
 
         var components = source.Select(item => item.Component).ToList();
         source.Clear();
-        OverlayTraceLog.Write(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=history.clear.end kind={GetHistoryKind(source)} count=0");
         return components;
     }
 

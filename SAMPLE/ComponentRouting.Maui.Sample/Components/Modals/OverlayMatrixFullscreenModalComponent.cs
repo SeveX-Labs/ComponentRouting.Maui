@@ -48,7 +48,6 @@ public sealed class OverlayMatrixFullscreenModalComponent
 
     private Task ShowOverlay()
     {
-        OverlayMatrixTraceLog.Click("FullscreenModal", "Show overlay from fullscreen modal", this);
         if (router.GetMountedOverlayComponents<LoadingPopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
@@ -62,7 +61,6 @@ public sealed class OverlayMatrixFullscreenModalComponent
 
     private Task ShowSnackbar()
     {
-        OverlayMatrixTraceLog.Click("FullscreenModal", "Show snackbar from fullscreen modal", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration("Snackbar from fullscreen modal", false, 0));
         return Task.CompletedTask;
@@ -70,7 +68,6 @@ public sealed class OverlayMatrixFullscreenModalComponent
 
     private Task ShowMutablePopup()
     {
-        OverlayMatrixTraceLog.Click("FullscreenModal", "Show mutable popup from fullscreen modal", this);
         if (router.GetMountedOverlayComponents<MutablePopupComponent>().Count == 0)
         {
             _ = router.PresentComponent<MutablePopupComponent, MutablePopupComponent.ComponentState, bool>(
@@ -84,14 +81,12 @@ public sealed class OverlayMatrixFullscreenModalComponent
 
     private Task CloseOverlay()
     {
-        OverlayMatrixTraceLog.Click("FullscreenModal", "Close overlay from fullscreen modal", this);
         router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
         return Task.CompletedTask;
     }
 
     private void Close()
     {
-        OverlayMatrixTraceLog.Click("FullscreenModal", "Close fullscreen modal overlay demo", this);
         CompletionSource?.TrySetResult(true);
     }
 }

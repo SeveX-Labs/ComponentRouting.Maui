@@ -50,14 +50,12 @@ public sealed class MutablePopupComponent : OverlayComponent<MutablePopupCompone
 
     private void UpdateMountedPopup()
     {
-        OverlayMatrixTraceLog.Click("MutablePopup", "Update via GetMountedOverlayComponent", this);
         var popup = router.GetMountedOverlayComponent<MutablePopupComponent>();
         popup?.UpdateMessage($"Updated via mounted overlay lookup #{++updateCount}.");
     }
 
     private void UnpresentMountedPopup()
     {
-        OverlayMatrixTraceLog.Click("MutablePopup", "Unpresent via GetMountedOverlayComponent", this);
         router.GetMountedOverlayComponent<MutablePopupComponent>()?.Unpresent();
     }
 }

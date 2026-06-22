@@ -1,6 +1,5 @@
 #if ANDROID
 using Android.OS;
-using Android.Util;
 using Android.Views;
 using Android.Widget;
 using ComponentRouting.Maui.Chrome;
@@ -16,7 +15,6 @@ namespace ComponentRouting.Maui.Routing;
 
 internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSurfaceProvider
 {
-    private const string LogTag = "ComponentRouting.Overlay";
     private readonly AndroidModalWindowDiscoveryService discovery;
 
     public AndroidOverlayPlatformSurfaceProvider(AndroidModalWindowDiscoveryService discovery)
@@ -34,10 +32,6 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
         Component ownerComponent,
         out OverlaySurfaceHost surfaceHost)
     {
-        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
-        WriteTrace(
-            $"op={operationId} step=android.provider.surface.requested surface={surfaceKind} provider={OverlayTraceLog.DescribeObject(this)} owner={OverlayTraceLog.DescribeObject(ownerComponent)}");
-
         return surfaceKind switch
         {
             OverlaySurfaceKind.Root => TryCreateRootSurfaceCore(ownerComponent, out surfaceHost),
@@ -52,28 +46,17 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
         out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.provider.surface.unavailable surface={surfaceKind} reason=UnsupportedSurface");
         return false;
     }
 
     private bool TryCreateRootSurfaceCore(Component parentComponent, out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
-        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
-        WriteTrace(
-            $"op={operationId} step=android.provider.begin provider={OverlayTraceLog.DescribeObject(this)} parent={OverlayTraceLog.DescribeObject(parentComponent)} activity={OverlayTraceLog.DescribeObject(Platform.CurrentActivity)} window={OverlayTraceLog.DescribeObject(Platform.CurrentActivity?.Window)} decor={OverlayTraceLog.DescribeObject(Platform.CurrentActivity?.Window?.DecorView)}");
 
         if (Platform.CurrentActivity?.Window?.DecorView is not AViewGroup decorView)
         {
-            WriteTrace(
-                $"op={operationId} step=android.provider.unavailable reason=DecorViewNotViewGroup decor={OverlayTraceLog.DescribeObject(Platform.CurrentActivity?.Window?.DecorView)}");
-            WriteDebug("Root surface unavailable: current activity decor view is not a ViewGroup.");
             return false;
         }
-
-        WriteTrace(
-            $"op={operationId} step=android.provider.decor {DescribeView(decorView)} parent={OverlayTraceLog.DescribeObject(decorView.Parent)} childCount={decorView.ChildCount}");
 
         return TryCreateSurfaceForDecorView(
             "platform-root",
@@ -89,19 +72,8 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
         out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
-        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
-        WriteTrace(
-            $"op={operationId} step=android.provider.modal.discovery.begin surface={surfaceKind} owner={OverlayTraceLog.DescribeObject(ownerComponent)}");
 
         var candidates = discovery.FindModalDialogWindows(ownerComponent);
-        WriteTrace(
-            $"op={operationId} step=android.provider.modal.discovery.end surface={surfaceKind} candidateCount={candidates.Count}");
-
-        foreach (var indexedCandidate in candidates.Select((candidate, index) => new { candidate, index }))
-        {
-            WriteTrace(
-                $"op={operationId} step=android.provider.modal.candidate index={indexedCandidate.index} depth={indexedCandidate.candidate.Depth} path={indexedCandidate.candidate.Path} matches={indexedCandidate.candidate.MatchesModalIdentity} isMauiModalNavigationFragment={indexedCandidate.candidate.IsMauiModalNavigationFragment} fragment={indexedCandidate.candidate.FragmentTypeName} decor={DescribeNullableView(indexedCandidate.candidate.DecorView as AView)}");
-        }
 
         var selected = candidates
             .Select((candidate, index) => new { candidate, index })
@@ -112,13 +84,8 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
 
         if (selected?.candidate.DecorView is not AViewGroup modalDecorView)
         {
-            WriteTrace(
-                $"op={operationId} step=android.provider.modal.unavailable surface={surfaceKind} reason=NoViewGroupDecorCandidate");
             return false;
         }
-
-        WriteTrace(
-            $"op={operationId} step=android.provider.modal.selected surface={surfaceKind} host={hostKind} index={selected.index} depth={selected.candidate.Depth} path={selected.candidate.Path} fragment={selected.candidate.FragmentTypeName} decor={DescribeView(modalDecorView)}");
 
         return TryCreateSurfaceForDecorView(
             hostKind,
@@ -134,7 +101,6 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
         out OverlaySurfaceHost surfaceHost)
     {
         surfaceHost = null!;
-        var operationId = OverlayTraceLog.CurrentOperationId ?? "none";
         var mauiContext = Microsoft.Maui.Controls.Application.Current?
             .Windows
             .FirstOrDefault()?
@@ -143,13 +109,8 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
             .MauiContext;
         if (mauiContext is null)
         {
-            WriteTrace(
-                $"op={operationId} step=android.provider.unavailable host={hostKind} reason=MauiContextNull application={OverlayTraceLog.DescribeObject(Microsoft.Maui.Controls.Application.Current)}");
-            WriteDebug($"{hostKind} surface unavailable: MauiContext is null.");
             return false;
         }
-        WriteTrace(
-            $"op={operationId} step=android.provider.mauiContext host={hostKind} context={OverlayTraceLog.DescribeObject(mauiContext)} services={OverlayTraceLog.DescribeObject(mauiContext.Services)} decor={DescribeView(decorView)}");
 
         AView? mountedView = null;
         FrameLayout? mountedContainer = null;
@@ -163,30 +124,19 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
                       mountedContainer.Parent == decorView,
             layout =>
             {
-                var mountOperationId = OverlayTraceLog.CurrentOperationId ?? operationId;
                 AView? nativeView = null;
                 FrameLayout? overlayContainer = null;
 
                 try
                 {
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.begin layout={OverlayTraceLog.DescribeObject(layout)} layoutParent={OverlayTraceLog.DescribeObject(layout.Parent)} layoutHandlerBefore={OverlayTraceLog.DescribeObject(layout.Handler)} decorBefore={DescribeView(decorView)} decorChildCountBefore={decorView.ChildCount}");
                     nativeView = layout.ToPlatform(mauiContext);
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.toPlatform host={hostKind} native={DescribeNullableView(nativeView)} handler={OverlayTraceLog.DescribeObject(layout.Handler)} nativeParentBefore={OverlayTraceLog.DescribeObject(nativeView.Parent)}");
                     overlayContainer = CreateOverlayContainer(decorView);
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.container.created host={hostKind} container={DescribeView(overlayContainer)} clickable={overlayContainer.Clickable} focusable={overlayContainer.Focusable} layoutParams={DescribeLayoutParams(overlayContainer.LayoutParameters)}");
                     mountedView = nativeView;
                     mountedContainer = overlayContainer;
 
                     if (nativeView.Parent is AViewGroup oldParent)
                     {
-                        WriteTrace(
-                            $"op={mountOperationId} step=android.mount.detachOldParent oldParent={OverlayTraceLog.DescribeObject(oldParent)} oldParentChildCountBefore={oldParent.ChildCount}");
                         oldParent.RemoveView(nativeView);
-                        WriteTrace(
-                            $"op={mountOperationId} step=android.mount.detachOldParent.done oldParentChildCountAfter={oldParent.ChildCount}");
                     }
 
                     decorView.AddView(
@@ -194,15 +144,11 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
                         new FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MatchParent,
                             ViewGroup.LayoutParams.MatchParent));
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.container.added container={DescribeView(overlayContainer)} containerParent={OverlayTraceLog.DescribeObject(overlayContainer.Parent)} decorChildCountAfter={decorView.ChildCount} layoutParams={DescribeLayoutParams(overlayContainer.LayoutParameters)}");
                     overlayContainer.AddView(
                         nativeView,
                         new FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MatchParent,
                             ViewGroup.LayoutParams.MatchParent));
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.child.added child={DescribeView(nativeView)} childParent={OverlayTraceLog.DescribeObject(nativeView.Parent)} containerChildCount={overlayContainer.ChildCount} layoutParams={DescribeLayoutParams(nativeView.LayoutParameters)}");
 
                     if (Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop)
                     {
@@ -212,33 +158,18 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
 
                     overlayContainer.BringToFront();
                     nativeView.BringToFront();
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.beforeLayout decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
                     ForceLayoutPass(decorView, overlayContainer, nativeView);
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.afterLayout decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
                     VerifyMounted(decorView, overlayContainer, nativeView);
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.success host={hostKind} containerAttached={overlayContainer.Parent == decorView} childAttached={nativeView.Parent == overlayContainer} dimensionsValid={overlayContainer.Width > 0 && overlayContainer.Height > 0 && nativeView.Width > 0 && nativeView.Height > 0} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
-                    WriteDebug(
-                        $"{hostKind} surface mounted: decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}.");
 
                     return new OverlaySurfaceHandle(() =>
                     {
-                        WriteTrace(
-                            $"op={mountOperationId} step=android.unmount.begin container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} decorChildCountBefore={decorView.ChildCount}");
                         Cleanup(layout, nativeView, overlayContainer);
-                        WriteTrace(
-                            $"op={mountOperationId} step=android.unmount.end host={hostKind} container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} decorChildCountAfter={decorView.ChildCount}");
                         mountedContainer = null;
                         mountedView = null;
-                    }, hostKind, mountOperationId);
+                    }, hostKind);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    WriteTrace(
-                        $"op={mountOperationId} step=android.mount.fail host={hostKind} reason=Exception exceptionType={ex.GetType().FullName} message={ex.Message} container={DescribeNullableView(overlayContainer)} child={DescribeNullableView(nativeView)} fallback=legacy");
-                    WriteDebug($"{hostKind} surface mount failed: {ex}");
                     Cleanup(layout, nativeView, overlayContainer);
                     mountedContainer = null;
                     mountedView = null;
@@ -268,16 +199,12 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
     {
         var width = decorView.Width > 0 ? decorView.Width : decorView.MeasuredWidth;
         var height = decorView.Height > 0 ? decorView.Height : decorView.MeasuredHeight;
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.layout.force width={width} height={height} decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
 
         if (width <= 0 || height <= 0)
         {
             overlayContainer.RequestLayout();
             nativeView.RequestLayout();
             decorView.Invalidate();
-            WriteTrace(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.layout.force.requestOnly reason=DecorHasNoBounds decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
             return;
         }
 
@@ -298,8 +225,6 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
 
     private static void VerifyMounted(AViewGroup decorView, FrameLayout overlayContainer, AView nativeView)
     {
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.verify.begin decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
         if (overlayContainer.Parent != decorView)
             throw new InvalidOperationException("Android root overlay container was not attached to the decor view.");
 
@@ -308,74 +233,28 @@ internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSu
 
         if (!overlayContainer.IsShown || !nativeView.IsShown)
             throw new InvalidOperationException(
-                $"Android root overlay is not shown. container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+                "Android root overlay is not shown.");
 
         if (overlayContainer.Width <= 0 || overlayContainer.Height <= 0)
-            throw new InvalidOperationException($"Android root overlay container has invalid bounds: {DescribeView(overlayContainer)}");
+            throw new InvalidOperationException("Android root overlay container has invalid bounds.");
 
         if (nativeView.Width <= 0 || nativeView.Height <= 0)
-            throw new InvalidOperationException($"Android root overlay child has invalid bounds: {DescribeView(nativeView)}");
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.verify.success decor={DescribeView(decorView)} container={DescribeView(overlayContainer)} child={DescribeView(nativeView)}");
+            throw new InvalidOperationException("Android root overlay child has invalid bounds.");
     }
 
     private static void Cleanup(Layout layout, AView? nativeView, FrameLayout? overlayContainer)
     {
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.begin layout={OverlayTraceLog.DescribeObject(layout)} handler={OverlayTraceLog.DescribeObject(layout.Handler)} child={DescribeNullableView(nativeView)} container={DescribeNullableView(overlayContainer)}");
         if (nativeView?.Parent is AViewGroup nativeParent)
         {
-            WriteTrace(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.removeChild parent={OverlayTraceLog.DescribeObject(nativeParent)} parentChildCountBefore={nativeParent.ChildCount}");
             nativeParent.RemoveView(nativeView);
-            WriteTrace(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.removeChild.done parentChildCountAfter={nativeParent.ChildCount}");
         }
 
         if (overlayContainer?.Parent is AViewGroup containerParent)
         {
-            WriteTrace(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.removeContainer parent={OverlayTraceLog.DescribeObject(containerParent)} parentChildCountBefore={containerParent.ChildCount}");
             containerParent.RemoveView(overlayContainer);
-            WriteTrace(
-                $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.removeContainer.done parentChildCountAfter={containerParent.ChildCount}");
         }
 
         layout.Handler?.DisconnectHandler();
-        WriteTrace(
-            $"op={OverlayTraceLog.CurrentOperationId ?? "none"} step=android.cleanup.end layout={OverlayTraceLog.DescribeObject(layout)} handler={OverlayTraceLog.DescribeObject(layout.Handler)} child={DescribeNullableView(nativeView)} container={DescribeNullableView(overlayContainer)}");
-        WriteDebug("Root surface cleanup completed.");
-    }
-
-    private static string DescribeView(AView view)
-    {
-        return $"{OverlayTraceLog.DescribeObject(view)} " +
-               $"attached={view.Parent is not null} shown={view.IsShown} " +
-               $"visibility={view.Visibility} width={view.Width} height={view.Height} measuredWidth={view.MeasuredWidth} measuredHeight={view.MeasuredHeight} elevation={(Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop ? view.Elevation : 0)}";
-    }
-
-    private static string DescribeNullableView(AView? view)
-    {
-        return view is null ? "null" : DescribeView(view);
-    }
-
-    private static string DescribeLayoutParams(ViewGroup.LayoutParams? layoutParams)
-    {
-        return layoutParams is null
-            ? "null"
-            : $"{layoutParams.GetType().FullName} width={layoutParams.Width} height={layoutParams.Height}";
-    }
-
-    [System.Diagnostics.Conditional("DEBUG")]
-    private static void WriteDebug(string message)
-    {
-        Log.Debug(LogTag, $"[ComponentRouting][OverlaySurface] {message}");
-    }
-
-    [System.Diagnostics.Conditional("DEBUG")]
-    private static void WriteTrace(string message)
-    {
-        Log.Debug(LogTag, $"[ComponentRouting][OverlayTrace] {message}");
     }
 }
 #endif

@@ -38,9 +38,6 @@ internal sealed class OverlaySurfaceHost
             containerLayout.Children.Contains,
             layout =>
             {
-                var operationId = OverlayTraceLog.CurrentOperationId;
-                OverlayTraceLog.Write(
-                    $"op={operationId ?? "none"} step=host.mount.begin host=legacy parent={OverlayTraceLog.DescribeObject(parentComponent)} container={OverlayTraceLog.DescribeObject(containerLayout)} containerParent={OverlayTraceLog.DescribeObject(containerLayout.Parent)} child={OverlayTraceLog.DescribeObject(layout)} childParentBefore={OverlayTraceLog.DescribeObject(layout.Parent)} visibleBefore={layout.IsVisible} width={layout.Width} height={layout.Height} horizontal={layout.HorizontalOptions} vertical={layout.VerticalOptions}");
                 AbsoluteLayout.SetLayoutFlags(layout, AbsoluteLayoutFlags.All);
                 AbsoluteLayout.SetLayoutBounds(layout, new Rect(0, 0, 1, 1));
                 containerLayout.IsVisible = true;
@@ -49,22 +46,16 @@ internal sealed class OverlaySurfaceHost
                 containerLayout.Children.Add(layout);
                 layout.ZIndex = 10;
                 layout.IsVisible = true;
-                OverlayTraceLog.Write(
-                    $"op={operationId ?? "none"} step=host.mount.end host=legacy child={OverlayTraceLog.DescribeObject(layout)} childParentAfter={OverlayTraceLog.DescribeObject(layout.Parent)} visibleAfter={layout.IsVisible} zIndex={layout.ZIndex} bounds={AbsoluteLayout.GetLayoutBounds(layout)} flags={AbsoluteLayout.GetLayoutFlags(layout)} childCount={containerLayout.Children.Count} containerVisible={containerLayout.IsVisible} containerInputTransparent={containerLayout.InputTransparent}");
 
                 return new OverlaySurfaceHandle(() =>
                 {
-                    OverlayTraceLog.Write(
-                        $"op={operationId ?? "none"} step=host.unmount.begin host=legacy child={OverlayTraceLog.DescribeObject(layout)} childParentBefore={OverlayTraceLog.DescribeObject(layout.Parent)} container={OverlayTraceLog.DescribeObject(containerLayout)} contains={containerLayout.Children.Contains(layout)}");
                     layout.IsVisible = false;
                     if (containerLayout.Children.Contains(layout))
                     {
                         containerLayout.Children.Remove(layout);
                     }
                     UpdateLegacyContainerInputState(containerLayout);
-                    OverlayTraceLog.Write(
-                        $"op={operationId ?? "none"} step=host.unmount.end host=legacy child={OverlayTraceLog.DescribeObject(layout)} childParentAfter={OverlayTraceLog.DescribeObject(layout.Parent)} contains={containerLayout.Children.Contains(layout)} childCount={containerLayout.Children.Count} containerVisible={containerLayout.IsVisible} containerInputTransparent={containerLayout.InputTransparent}");
-                }, "legacy", operationId);
+                }, "legacy");
             });
     }
 
