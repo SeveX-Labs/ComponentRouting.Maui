@@ -7,13 +7,26 @@
 - New `MauiAppBuilder.UseComponentRoutingMaui(...)` setup API.
 - Platform chrome setup now registers both DI services and MAUI platform handlers.
 - iOS modal `StatusBarForeground` support through an internal status-bar-aware navigation page and renderer.
+- Overlay platform surface hosts for Android and iOS root, modal, and fullscreen modal surfaces.
+- Modal-aware overlay and snackbar hosting so overlays can mount over the active visual surface instead of only the current page content.
+- Snackbar safe-area behavior for platform-hosted overlays.
 - README platform support matrix for Android and iOS chrome behavior.
 - Updated sample showing platform chrome, normal modal, and fullscreen modal behavior.
+- SampleApp overlay matrix covering root, push, modal, and push-inside-modal overlay/snackbar scenarios.
+- SampleApp mutable popup demo for updating and unpresenting an already mounted popup through mounted overlay lookup.
 
 ### Changed
 
 - ComponentRouting.Maui setup is now centered on `MauiAppBuilder`.
 - README and SAMPLE were updated to the 4.0.0 setup flow.
+- Mounted overlay lookup is now history-based and works independently from the visual tree or platform host used to mount the overlay.
+
+### Fixed
+
+- Legacy empty overlay hosts no longer block input.
+- `GetMountedOverlayComponent<T>()` and `GetMountedOverlayComponents<T>()` work for overlays mounted on platform hosts as well as legacy hosts.
+- Legacy dismiss keeps overlay container input and visibility state coherent after removing the last child.
+- Overlay diagnostics now report the actual host kind selected for a presentation.
 
 ### Breaking Changes
 

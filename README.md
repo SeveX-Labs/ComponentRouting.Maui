@@ -324,7 +324,7 @@ The generic arguments keep the component state and result explicit at the call s
 - `PageComponent<TState, TResult>` replaces the current window page.
 - `ModalPageComponent<TState, TResult>` presents a modal MAUI page.
 - `PushableComponent<TState, TResult>` pushes a page onto the current navigation stack.
-- `OverlayComponent<TState, TResult>` mounts a MAUI layout over an `OverlayHost` and implements the marker `Component` interface used by mounted overlay lookup.
+- `OverlayComponent<TState, TResult>` mounts a MAUI layout over the active overlay surface and implements the marker `Component` interface used by mounted overlay lookup.
 - `SnackbarComponent` is an overlay specialized for `SnackbarConfiguration`.
 - `TabComponent<TState>` represents a tab-bound component.
 - `FlyoutComponent<TState>` is supported by the router as a flyout-bound component type.
@@ -332,6 +332,15 @@ The generic arguments keep the component state and result explicit at the call s
 ## Overlays And Snackbars
 
 Overlays and snackbars are registered as transient components, so each presentation gets a separate instance.
+
+ComponentRouting.Maui resolves the active visual surface before mounting an overlay or snackbar. Root pages and normal push navigation use a `platform-root` host. Modal routes and push navigation inside a modal use `platform-modal`. Fullscreen modal routes use `platform-fullscreen-modal`. If a platform host is not available or mounting fails, the router falls back to the legacy `OverlayHost.OverlayContainer` path.
+
+The intended layout split is:
+
+- the overlay root/backdrop can be edge-to-edge and cover the active root, modal, or fullscreen modal surface;
+- the popup content or snackbar body should remain safe-area aware.
+
+Snackbars get the router's default safe-area placement when they are mounted on a platform host, while legacy hosts keep their existing in-page positioning.
 
 ```csharp
 _ = router.PresentComponent<LoadingPopupComponent, LoadingPopupComponent.ComponentState, bool>(
@@ -354,7 +363,18 @@ var popup = router.GetMountedOverlayComponent<LoadingPopupComponent>();
 var snackbars = router.GetMountedOverlayComponents<InfoSnackbarComponent>();
 ```
 
+Mounted lookup is history-based, not visual-tree-based. It works whether the overlay is mounted through the legacy container, `platform-root`, `platform-modal`, or `platform-fullscreen-modal`.
+
 `GetMountedOverlayComponent<TComponent>()` returns `null` when no mounted instance exists and returns the latest matching mounted overlay or snackbar by default. Pass `throwIfMultiple: true` to throw `InvalidOperationException` when multiple matching instances exist. Use `GetMountedOverlayComponents<TComponent>()` when multiple overlays or snackbars can be present.
+
+Because lookup returns the component instance, it can be used to close or update an already presented overlay:
+
+```csharp
+router.GetMountedOverlayComponent<LoadingPopupComponent>()?.Unpresent();
+
+var popup = router.GetMountedOverlayComponent<MutablePopupComponent>();
+popup?.UpdateMessage("Updated while the popup is still visible.");
+```
 
 Close all mounted popup overlays without closing mounted snackbars:
 
@@ -384,6 +404,8 @@ It demonstrates:
 - fullscreen modal routing with `FullscreenChromeDemoComponent` and fullscreen platform chrome defaults;
 - route-specific light/dark status bar foreground through `ComponentChromeOptions` defaults and overrides;
 - pushable wizard flow with `WizardStepComponent` and `WizardConfirmComponent`;
+- overlay/snackbar surface-aware hosting from root, push, modal, and push-inside-modal routes;
+- mutable popup lookup, including update and unpresent through `GetMountedOverlayComponent<T>()`;
 - overlay presentation with `LoadingPopupComponent`;
 - closing mounted popup overlays with `CloseAllPopups()`;
 - snackbar presentation with `InfoSnackbarComponent`;
