@@ -10,6 +10,7 @@
                 <Label x:Name="MessageLabel" LineBreakMode="WordWrap" />
                 <Button Text="Show overlay from modal" Clicked="HandleShowOverlayClicked" />
                 <Button Text="Show snackbar from modal" Clicked="HandleShowSnackbarClicked" />
+                <Button Text="Show mutable popup from modal" Clicked="HandleShowMutablePopupClicked" />
                 <Button Text="Open push inside modal overlay demo" Clicked="HandleOpenPushInsideModalClicked" />
                 <Button Text="Close overlay" Clicked="HandleCloseOverlayClicked" />
                 <Button Text="Close modal" Clicked="HandleCloseClicked" />

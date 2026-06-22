@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      x:Class="ComponentRouting.Maui.Sample.Presenters.Overlays.MutablePopupPresenter"
+      BackgroundColor="#80000000">
+    <Border Padding="20"
+            BackgroundColor="{AppThemeBinding Light=White, Dark=#202020}"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            StrokeThickness="1">
+        <VerticalStackLayout Spacing="10" WidthRequest="280">
+            <Label x:Name="TitleLabel"
+                   HorizontalTextAlignment="Center"
+                   FontAttributes="Bold" />
+            <Label x:Name="MessageLabel"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap" />
+            <Button Text="Update via mounted lookup"
+                    Clicked="HandleUpdateClicked" />
+            <Button Text="Unpresent via mounted lookup"
+                    Clicked="HandleUnpresentClicked" />
+        </VerticalStackLayout>
+    </Border>
+</Grid>

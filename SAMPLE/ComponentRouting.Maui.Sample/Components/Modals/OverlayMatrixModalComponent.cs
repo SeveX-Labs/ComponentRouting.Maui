@@ -35,6 +35,7 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
             state.Message,
             ShowOverlay,
             ShowSnackbar,
+            ShowMutablePopup,
             OpenPushInsideModal,
             CloseOverlay,
             Close);
@@ -65,6 +66,20 @@ public sealed class OverlayMatrixModalComponent : ModalPageComponent<OverlayMatr
         OverlayMatrixTraceLog.Click("Modal", "Show snackbar from modal", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration("Snackbar from modal", false, 0));
+        return Task.CompletedTask;
+    }
+
+    private Task ShowMutablePopup()
+    {
+        OverlayMatrixTraceLog.Click("Modal", "Show mutable popup from modal", this);
+        if (router.GetMountedOverlayComponents<MutablePopupComponent>().Count == 0)
+        {
+            _ = router.PresentComponent<MutablePopupComponent, MutablePopupComponent.ComponentState, bool>(
+                new MutablePopupComponent.ComponentState(
+                    "Mutable popup from modal",
+                    "Initial text. Use the buttons inside this popup to update or unpresent it through mounted overlay lookup."));
+        }
+
         return Task.CompletedTask;
     }
 

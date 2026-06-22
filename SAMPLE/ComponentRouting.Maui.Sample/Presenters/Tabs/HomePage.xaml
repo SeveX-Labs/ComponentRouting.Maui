@@ -23,6 +23,7 @@
                                LineBreakMode="WordWrap" />
                         <Button Text="Show overlay from root" Clicked="HandleShowMatrixRootOverlayClicked" />
                         <Button Text="Show snackbar from root" Clicked="HandleShowMatrixRootSnackbarClicked" />
+                        <Button Text="Show mutable popup from root" Clicked="HandleShowMutablePopupClicked" />
                         <Button Text="Open push overlay demo" Clicked="HandleOpenPushOverlayDemoClicked" />
                         <Button Text="Open modal overlay demo" Clicked="HandleOpenModalOverlayDemoClicked" />
                     </VerticalStackLayout>

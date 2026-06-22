@@ -7,6 +7,7 @@ public partial class OverlayMatrixPushPage : PushablePresenter, OverlayHost
 {
     private Func<Task>? showOverlay;
     private Func<Task>? showSnackbar;
+    private Func<Task>? showMutablePopup;
     private Func<Task>? closeOverlay;
     private Func<Task>? close;
 
@@ -23,6 +24,7 @@ public partial class OverlayMatrixPushPage : PushablePresenter, OverlayHost
         string surfaceName,
         Func<Task> showOverlay,
         Func<Task> showSnackbar,
+        Func<Task> showMutablePopup,
         Func<Task> closeOverlay,
         Func<Task> close)
     {
@@ -32,12 +34,14 @@ public partial class OverlayMatrixPushPage : PushablePresenter, OverlayHost
         SurfaceLabel.Text = $"Surface: {surfaceName}";
         this.showOverlay = showOverlay;
         this.showSnackbar = showSnackbar;
+        this.showMutablePopup = showMutablePopup;
         this.closeOverlay = closeOverlay;
         this.close = close;
     }
 
     private async void HandleShowOverlayClicked(object? sender, EventArgs e) => await Invoke(showOverlay);
     private async void HandleShowSnackbarClicked(object? sender, EventArgs e) => await Invoke(showSnackbar);
+    private async void HandleShowMutablePopupClicked(object? sender, EventArgs e) => await Invoke(showMutablePopup);
     private async void HandleCloseOverlayClicked(object? sender, EventArgs e) => await Invoke(closeOverlay);
     private async void HandleCloseClicked(object? sender, EventArgs e) => await Invoke(close);
 

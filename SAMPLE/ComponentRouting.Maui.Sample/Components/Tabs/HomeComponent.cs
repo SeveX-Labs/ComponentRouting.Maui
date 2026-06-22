@@ -43,7 +43,8 @@ public sealed class HomeComponent : SampleTabComponent<bool>
             ShowMatrixRootOverlay,
             ShowMatrixRootSnackbar,
             OpenPushOverlayDemo,
-            OpenModalOverlayDemo);
+            OpenModalOverlayDemo,
+            ShowMutablePopup);
         page.SetFactoryStatus(ReferenceEquals(
             componentFactory.CreateComponent<SampleTabbedRootComponent>(),
             componentFactory.CreateComponent<SampleTabbedRootComponent>()));
@@ -97,6 +98,21 @@ public sealed class HomeComponent : SampleTabComponent<bool>
         OverlayMatrixTraceLog.Click("Root", "Show snackbar from root", this);
         _ = router.PresentComponent<InfoSnackbarComponent, SnackbarConfiguration, bool>(
             new SnackbarConfiguration("Snackbar from root", false, 0));
+        UpdateMountedCounts();
+        return Task.CompletedTask;
+    }
+
+    private Task ShowMutablePopup()
+    {
+        OverlayMatrixTraceLog.Click("Root", "Show mutable popup from root", this);
+        if (router.GetMountedOverlayComponents<MutablePopupComponent>().Count == 0)
+        {
+            _ = router.PresentComponent<MutablePopupComponent, MutablePopupComponent.ComponentState, bool>(
+                new MutablePopupComponent.ComponentState(
+                    "Mutable popup from root",
+                    "Initial text. Use the buttons inside this popup to update or unpresent it through mounted overlay lookup."));
+        }
+
         UpdateMountedCounts();
         return Task.CompletedTask;
     }

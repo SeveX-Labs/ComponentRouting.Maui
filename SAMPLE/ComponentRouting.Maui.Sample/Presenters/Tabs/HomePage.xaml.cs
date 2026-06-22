@@ -16,6 +16,7 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
     private Func<Task>? showMatrixRootSnackbar;
     private Func<Task>? openPushOverlayDemo;
     private Func<Task>? openModalOverlayDemo;
+    private Func<Task>? showMutablePopup;
 
     public HomePage()
     {
@@ -36,7 +37,8 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
         Func<Task> showMatrixRootOverlay,
         Func<Task> showMatrixRootSnackbar,
         Func<Task> openPushOverlayDemo,
-        Func<Task> openModalOverlayDemo)
+        Func<Task> openModalOverlayDemo,
+        Func<Task> showMutablePopup)
     {
         this.openLogin = openLogin;
         this.openDetails = openDetails;
@@ -50,6 +52,7 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
         this.showMatrixRootSnackbar = showMatrixRootSnackbar;
         this.openPushOverlayDemo = openPushOverlayDemo;
         this.openModalOverlayDemo = openModalOverlayDemo;
+        this.showMutablePopup = showMutablePopup;
     }
 
     public void SetFactoryStatus(bool isSingleton)
@@ -81,6 +84,7 @@ public partial class HomePage : ContentPage, Presenter, OverlayHost
     private async void HandleShowMatrixRootSnackbarClicked(object? sender, EventArgs e) => await Invoke(showMatrixRootSnackbar);
     private async void HandleOpenPushOverlayDemoClicked(object? sender, EventArgs e) => await Invoke(openPushOverlayDemo);
     private async void HandleOpenModalOverlayDemoClicked(object? sender, EventArgs e) => await Invoke(openModalOverlayDemo);
+    private async void HandleShowMutablePopupClicked(object? sender, EventArgs e) => await Invoke(showMutablePopup);
 
     private static async Task Invoke(Func<Task>? action)
     {

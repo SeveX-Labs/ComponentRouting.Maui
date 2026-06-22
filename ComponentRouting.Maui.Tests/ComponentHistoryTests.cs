@@ -89,6 +89,60 @@ public class ComponentHistoryTests
     }
 
     [Fact]
+    public void GetMountedOverlayComponent_returns_newest_match_by_timestamp()
+    {
+        var history = new ComponentHistory();
+        var newer = new TestComponent();
+        var older = new TestComponent();
+
+        history.AddPopup(typeof(HostComponent), newer, new DateTime(2026, 1, 2));
+        history.AddPopup(typeof(HostComponent), older, new DateTime(2026, 1, 1));
+
+        Assert.Same(newer, history.GetMountedOverlayComponent<TestComponent>());
+    }
+
+    [Fact]
+    public void GetMountedOverlayComponents_returns_matches_ordered_by_timestamp()
+    {
+        var history = new ComponentHistory();
+        var newest = new TestComponent();
+        var oldest = new TestComponent();
+        var middle = new TestComponent();
+
+        history.AddPopup(typeof(HostComponent), newest, new DateTime(2026, 1, 3));
+        history.AddPopup(typeof(HostComponent), oldest, new DateTime(2026, 1, 1));
+        history.AddPopup(typeof(HostComponent), middle, new DateTime(2026, 1, 2));
+
+        var mounted = history.GetMountedOverlayComponents<TestComponent>();
+
+        Assert.Equal(new[] { oldest, middle, newest }, mounted);
+    }
+
+    [Fact]
+    public void GetMountedOverlayComponents_uses_history_even_when_overlay_has_platform_handle()
+    {
+        var history = new ComponentHistory();
+        var popup = new TestComponent();
+        var handle = new OverlaySurfaceHandle(() => { }, "platform-root");
+
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now, handle);
+
+        Assert.Same(popup, history.GetMountedOverlayComponent<TestComponent>());
+    }
+
+    [Fact]
+    public void GetMountedOverlayComponent_returns_null_after_overlay_is_removed()
+    {
+        var history = new ComponentHistory();
+        var popup = new TestComponent();
+        history.AddPopup(typeof(HostComponent), popup, DateTime.Now, new OverlaySurfaceHandle(() => { }, "platform-modal"));
+
+        history.Remove(popup);
+
+        Assert.Null(history.GetMountedOverlayComponent<TestComponent>());
+    }
+
+    [Fact]
     public void GetMountedOverlayComponent_throws_when_multiple_matches_exist_and_strict_lookup_is_requested()
     {
         var history = new ComponentHistory();

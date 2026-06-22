@@ -6,6 +6,7 @@ public partial class OverlayMatrixModalPage : ContentPage, Presenter, OverlayHos
 {
     private Func<Task>? showOverlay;
     private Func<Task>? showSnackbar;
+    private Func<Task>? showMutablePopup;
     private Func<Task>? openPushInsideModal;
     private Func<Task>? closeOverlay;
     private Action? close;
@@ -22,6 +23,7 @@ public partial class OverlayMatrixModalPage : ContentPage, Presenter, OverlayHos
         string message,
         Func<Task> showOverlay,
         Func<Task> showSnackbar,
+        Func<Task> showMutablePopup,
         Func<Task> openPushInsideModal,
         Func<Task> closeOverlay,
         Action close)
@@ -31,6 +33,7 @@ public partial class OverlayMatrixModalPage : ContentPage, Presenter, OverlayHos
         MessageLabel.Text = message;
         this.showOverlay = showOverlay;
         this.showSnackbar = showSnackbar;
+        this.showMutablePopup = showMutablePopup;
         this.openPushInsideModal = openPushInsideModal;
         this.closeOverlay = closeOverlay;
         this.close = close;
@@ -38,6 +41,7 @@ public partial class OverlayMatrixModalPage : ContentPage, Presenter, OverlayHos
 
     private async void HandleShowOverlayClicked(object? sender, EventArgs e) => await Invoke(showOverlay);
     private async void HandleShowSnackbarClicked(object? sender, EventArgs e) => await Invoke(showSnackbar);
+    private async void HandleShowMutablePopupClicked(object? sender, EventArgs e) => await Invoke(showMutablePopup);
     private async void HandleOpenPushInsideModalClicked(object? sender, EventArgs e) => await Invoke(openPushInsideModal);
     private async void HandleCloseOverlayClicked(object? sender, EventArgs e) => await Invoke(closeOverlay);
 

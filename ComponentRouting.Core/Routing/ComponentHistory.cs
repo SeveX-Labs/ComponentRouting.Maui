@@ -83,7 +83,12 @@ internal sealed class ComponentHistory
         var result = new List<TComponent>();
         var seen = new HashSet<Component>(ReferenceEqualityComparer.Instance);
 
-        foreach (var component in popups.Concat(snackbars).Select(item => item.Component))
+        foreach (var component in popups
+                     .Concat(snackbars)
+                     .GroupBy(item => item.Component, ReferenceEqualityComparer.Instance)
+                     .Select(group => group.OrderByDescending(item => item.Timestamp).First())
+                     .OrderBy(item => item.Timestamp)
+                     .Select(item => item.Component))
         {
             if (component is TComponent typedComponent && seen.Add(component))
                 result.Add(typedComponent);

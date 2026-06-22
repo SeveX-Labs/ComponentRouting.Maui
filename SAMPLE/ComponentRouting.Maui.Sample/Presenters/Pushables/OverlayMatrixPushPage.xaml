@@ -12,6 +12,7 @@
                 <Label x:Name="SurfaceLabel" FontSize="13" />
                 <Button Text="Show overlay from push" Clicked="HandleShowOverlayClicked" />
                 <Button Text="Show snackbar from push" Clicked="HandleShowSnackbarClicked" />
+                <Button Text="Show mutable popup from push" Clicked="HandleShowMutablePopupClicked" />
                 <Button Text="Close overlay" Clicked="HandleCloseOverlayClicked" />
                 <Button Text="Back" Clicked="HandleCloseClicked" />
             </VerticalStackLayout>
