@@ -44,6 +44,7 @@ public sealed class HomeComponent : SampleTabComponent<bool>
             ShowMatrixRootSnackbar,
             OpenPushOverlayDemo,
             OpenModalOverlayDemo,
+            OpenFullscreenModalOverlayDemo,
             ShowMutablePopup);
         page.SetFactoryStatus(ReferenceEquals(
             componentFactory.CreateComponent<SampleTabbedRootComponent>(),
@@ -137,6 +138,17 @@ public sealed class HomeComponent : SampleTabComponent<bool>
                 "Modal overlay demo",
                 "Use this modal to compare overlay and snackbar bounds from a modal surface and a push inside it."));
         ((HomePage)Presenter!).SetLastResult($"Modal overlay demo result: {result}");
+        UpdateMountedCounts();
+    }
+
+    private async Task OpenFullscreenModalOverlayDemo()
+    {
+        OverlayMatrixTraceLog.Click("Root", "Open fullscreen modal overlay demo", this);
+        var result = await router.PresentComponent<OverlayMatrixFullscreenModalComponent, OverlayMatrixFullscreenModalComponent.ComponentState, bool>(
+            new OverlayMatrixFullscreenModalComponent.ComponentState(
+                "Fullscreen modal overlay demo",
+                "Use this fullscreen modal to verify overlay and snackbar hosting on the fullscreen modal surface."));
+        ((HomePage)Presenter!).SetLastResult($"Fullscreen modal overlay demo result: {result}");
         UpdateMountedCounts();
     }
 

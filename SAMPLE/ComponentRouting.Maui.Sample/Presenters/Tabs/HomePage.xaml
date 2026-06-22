@@ -26,6 +26,7 @@
                         <Button Text="Show mutable popup from root" Clicked="HandleShowMutablePopupClicked" />
                         <Button Text="Open push overlay demo" Clicked="HandleOpenPushOverlayDemoClicked" />
                         <Button Text="Open modal overlay demo" Clicked="HandleOpenModalOverlayDemoClicked" />
+                        <Button Text="Open fullscreen modal overlay demo" Clicked="HandleOpenFullscreenModalOverlayDemoClicked" />
                     </VerticalStackLayout>
                 </Border>
                 <Button Text="Show Loading Popup" Clicked="HandleShowLoadingClicked" />

@@ -24,7 +24,7 @@ internal static class ComponentRoutingMauiServiceCollectionExtensions
         services.TryAddSingleton<ComponentChromeOptionsResolver>();
         services.TryAddSingleton<ComponentChromeService, NoOpComponentChromeService>();
 #if ANDROID
-        services.TryAddSingleton<IOverlayPlatformSurfaceProvider, AndroidRootOverlayPlatformSurfaceProvider>();
+        services.TryAddSingleton<IOverlayPlatformSurfaceProvider, AndroidOverlayPlatformSurfaceProvider>();
         services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
         services.TryAddSingleton<AndroidWindowChromeApplier>();
 #elif IOS

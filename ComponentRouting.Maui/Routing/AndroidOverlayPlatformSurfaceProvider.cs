@@ -14,12 +14,12 @@ using AViewGroup = Android.Views.ViewGroup;
 
 namespace ComponentRouting.Maui.Routing;
 
-internal sealed class AndroidRootOverlayPlatformSurfaceProvider : IOverlayPlatformSurfaceProvider
+internal sealed class AndroidOverlayPlatformSurfaceProvider : IOverlayPlatformSurfaceProvider
 {
     private const string LogTag = "ComponentRouting.Overlay";
     private readonly AndroidModalWindowDiscoveryService discovery;
 
-    public AndroidRootOverlayPlatformSurfaceProvider(AndroidModalWindowDiscoveryService discovery)
+    public AndroidOverlayPlatformSurfaceProvider(AndroidModalWindowDiscoveryService discovery)
     {
         this.discovery = discovery;
     }
