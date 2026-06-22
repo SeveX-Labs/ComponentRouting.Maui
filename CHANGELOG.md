@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.1] - 2026-06-22
+
+### Changed
+
+- Removed temporary overlay surface diagnostics from ComponentRouting.Maui and the SampleApp.
+- Renamed the internal Android overlay platform surface provider to reflect root, modal, and fullscreen modal support.
+- Added a SampleApp fullscreen modal overlay/snackbar demo.
+
+### Compatibility
+
+- No breaking changes.
+
 ## [4.0.0] - 2026-06-20
 
 ### Added
