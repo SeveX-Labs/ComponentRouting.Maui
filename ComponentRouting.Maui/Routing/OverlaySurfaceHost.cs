@@ -75,9 +75,9 @@ internal sealed class OverlaySurfaceHost
 
     private static void UpdateLegacyContainerInputState(AbsoluteLayout containerLayout)
     {
-        var hasChildren = containerLayout.Children.Count > 0;
-        containerLayout.IsVisible = hasChildren;
-        containerLayout.InputTransparent = !hasChildren;
+        var state = LegacyOverlayContainerInputState.FromChildCount(containerLayout.Children.Count);
+        containerLayout.IsVisible = state.IsVisible;
+        containerLayout.InputTransparent = state.InputTransparent;
     }
 
     public static OverlaySurfaceHost CreatePlatform(
