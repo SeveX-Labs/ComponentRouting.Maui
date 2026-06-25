@@ -33,11 +33,15 @@ public sealed class AndroidModalWindowDiscoveryService
         if (activity is not FragmentActivity fragmentActivity || activityDecorView is null)
             return Array.Empty<AndroidModalWindowCandidate>();
 
+        var supportFragmentManager = fragmentActivity.SupportFragmentManager;
+        if (supportFragmentManager.IsDestroyed)
+            return Array.Empty<AndroidModalWindowCandidate>();
+
         var modalStackCount = GetObservedModalStackCount(component, mountablePage);
         var identity = CreateModalWindowIdentity(component, mountablePage, activityDecorView, modalStackCount);
         var candidates = new List<AndroidModalWindowCandidate>();
         CollectDialogWindowCandidates(
-            fragmentActivity.SupportFragmentManager,
+            supportFragmentManager,
             identity,
             activityDecorView,
             candidates,
@@ -116,6 +120,9 @@ public sealed class AndroidModalWindowDiscoveryService
         if (fragmentManager is null)
             return;
 
+        if (fragmentManager.IsDestroyed)
+            return;
+
         var index = 0;
         foreach (var fragment in GetFragments(fragmentManager))
         {
@@ -123,6 +130,9 @@ public sealed class AndroidModalWindowDiscoveryService
             index++;
 
             if (fragment is null)
+                continue;
+
+            if (!CanInspectFragment(fragment))
                 continue;
 
             if (fragment is DialogFragment dialogFragment)
@@ -144,8 +154,11 @@ public sealed class AndroidModalWindowDiscoveryService
                 }
             }
 
+            if (!TryGetChildFragmentManager(fragment, out var childFragmentManager))
+                continue;
+
             CollectDialogWindowCandidates(
-                fragment.ChildFragmentManager,
+                childFragmentManager,
                 identity,
                 activityDecorView,
                 candidates,
@@ -164,6 +177,35 @@ public sealed class AndroidModalWindowDiscoveryService
         {
             return Enumerable.Empty<Fragment?>();
         }
+    }
+
+    private static bool TryGetChildFragmentManager(
+        Fragment fragment,
+        out FragmentManager? childFragmentManager)
+    {
+        childFragmentManager = null;
+
+        if (!CanInspectFragment(fragment))
+            return false;
+
+        try
+        {
+            childFragmentManager = fragment.ChildFragmentManager;
+            return childFragmentManager is not null && !childFragmentManager.IsDestroyed;
+        }
+        catch (Java.Lang.IllegalStateException)
+        {
+            return false;
+        }
+    }
+
+    private static bool CanInspectFragment(Fragment fragment)
+    {
+        return fragment.IsAdded &&
+               !fragment.IsDetached &&
+               !fragment.IsRemoving &&
+               fragment.Context is not null &&
+               fragment.Activity is not null;
     }
 
     private static int GetObservedModalStackCount(Component component, Page? mountablePage)
