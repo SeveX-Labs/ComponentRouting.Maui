@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.2] - 2026-06-26
+
+### Fixed
+
+- Android chrome modal window discovery is now best-effort during app teardown and handler disconnect.
+- `AndroidModalWindowDiscoveryService` now skips destroyed fragment managers and fragments that are not attached, detached, removing, or missing context/activity.
+- Access to `Fragment.ChildFragmentManager` is guarded and handles `Java.Lang.IllegalStateException`, preventing chrome apply from crashing when a fragment can no longer be inspected during shutdown.
+
+### Compatibility
+
+- No routing, modal, or normal chrome behavior changes are intended outside Android teardown safety.
+
 ## [4.0.1] - 2026-06-22
 
 ### Changed

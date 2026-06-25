@@ -41,7 +41,7 @@ Starting from version 4.0.0, setup is unified under `MauiAppBuilder`. Call `UseC
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 4.0.1
+dotnet add package ComponentRouting.Maui --version 4.0.2
 ```
 
 ## Breaking Changes In 4.0.0
@@ -580,7 +580,7 @@ mv Directory.Build.local.props.disabled Directory.Build.local.props
 To inspect the generated package contents:
 
 ```bash
-unzip -l ./local-nuget/ComponentRouting.Maui.4.0.1.nupkg | grep "lib/"
+unzip -l ./local-nuget/ComponentRouting.Maui.4.0.2.nupkg | grep "lib/"
 ```
 
 With .NET MAUI/.NET 10, it is normal for the generated `.nupkg` to contain platform-normalized asset folders such as:
