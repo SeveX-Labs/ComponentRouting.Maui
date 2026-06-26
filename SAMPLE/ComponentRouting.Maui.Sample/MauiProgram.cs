@@ -61,6 +61,10 @@ public static class MauiProgram
 						NavigationBarForeground = ChromeForeground.DarkContent,
 						ActionBarTextColor = Colors.Black
 					};
+				},
+				configureRuntime: runtime =>
+				{
+					runtime.EnableAutomaticPlatformLifecycle();
 				})
 			.UseMauiCommunityToolkit()
 			.ConfigureFonts(fonts =>

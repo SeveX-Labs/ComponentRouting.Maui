@@ -82,6 +82,46 @@ builder.Services.AddSingleton<SafeAreaInsetsService, SampleSafeAreaInsetsService
 
 `UseComponentRoutingMaui(...)` scans exported types from the provided assemblies, registers concrete components, registers `ComponentFactory`, configures platform chrome, registers required MAUI handlers, and registers the first discovered concrete `CatalogProvider`, `LocaleProvider`, and `Router` when available. Pass `additionalManifestScopeNamePrefixes` when your component manifests are generated in additional namespace scopes that should be included during discovery. The sample registers its router and required services explicitly.
 
+## Runtime Lifecycle
+
+ComponentRouting.Maui can manage router runtime shutdown during app/window teardown. The lifecycle helpers are opt-in and do not change behavior unless you enable them.
+
+Recommended setup in `MauiProgram.cs`:
+
+```csharp
+builder.UseComponentRoutingMaui(
+    assemblies: new[] { typeof(App).Assembly },
+    configureRuntime: runtime =>
+    {
+        runtime.EnableAutomaticPlatformLifecycle();
+    });
+```
+
+Recommended setup in `App.xaml.cs` / `CreateWindow`:
+
+```csharp
+var window = new Window(rootPage)
+    .UseComponentRoutingMauiLifecycle(router);
+```
+
+`UseComponentRoutingMauiLifecycle(...)` is cross-platform. It hooks the MAUI `Window` lifecycle and calls `Router.BeginNewRuntime()` on `Window.Created`, then `Router.ShutdownAsync(...)` on `Window.Destroying`. The default shutdown options are `Reason = RouterShutdownReason.WindowDestroying` and `DisconnectMauiPageTree = true`.
+
+`EnableAutomaticPlatformLifecycle()` currently adds Android native lifecycle protection only. On Android, it calls `Router.BeginNewRuntime()` from `Activity.OnCreate` and `Router.ShutdownAsync(...)` from `Activity.OnDestroy`, using the same default shutdown options. It does not add iOS native background or scene lifecycle hooks.
+
+During shutdown, the router blocks new navigation and chrome work, calls shutdown-aware component and presenter hooks, disposes tracked runtime components, and can conservatively disconnect the MAUI page tree during window/activity destroy.
+
+What remains app-side:
+
+- startup/root presentation;
+- signout live reset flows;
+- sleep/background handling;
+- media, orientation, and business cleanup;
+- app-specific `IRouterShutdownAwareComponent` and `IRouterShutdownAwarePresenter` implementations.
+
+Manual `Router.BeginNewRuntime()` usually is not needed when the root flow starts from `Window.Created`, because the window helper opens the runtime first. Advanced apps that start or present root flows inside `CreateWindow`, before `Window.Created` is guaranteed, can keep an explicit `Router.BeginNewRuntime()` there. The call is idempotent and is a no-op when the runtime is already active.
+
+ComponentRouting.Maui does not shut down the router on background, stopped, or sleep events. Background is not teardown; if your app needs sleep/resume behavior, keep that handling in the app. On iOS, `Window.Destroying` remains the MAUI teardown point for a window.
+
 ## Platform Chrome And Fullscreen Modals
 
 `UseComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. In 4.0.0 this setup lives on `MauiAppBuilder` because ComponentRouting.Maui must register DI services and platform-specific MAUI handlers in one place.
@@ -410,7 +450,8 @@ It demonstrates:
 - closing mounted popup overlays with `CloseAllPopups()`;
 - snackbar presentation with `InfoSnackbarComponent`;
 - mounted overlay and snackbar lookup;
-- builder setup through `UseComponentRoutingMaui(...)`, plus `SampleRouter`, `CatalogProvider`, and `SafeAreaInsetsService` registration.
+- builder setup through `UseComponentRoutingMaui(...)`, Android platform lifecycle opt-in, plus `SampleRouter`, `CatalogProvider`, and `SafeAreaInsetsService` registration.
+- window lifecycle wiring through `UseComponentRoutingMauiLifecycle(...)`.
 
 The app creates an initial placeholder window page, then presents the root component when the window is created.
 
