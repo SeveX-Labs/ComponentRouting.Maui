@@ -142,14 +142,19 @@ public sealed class TestRouter : Router
         RouterShutdownOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        options ??= new RouterShutdownOptions();
         var generation = runtimeLifecycle.BeginShutdown();
+        var context = new RouterShutdownContext(
+            generation,
+            runtimeLifecycle.IsShuttingDown,
+            runtimeLifecycle.ShutdownToken,
+            options.Reason);
 
         if (shutdownTask is not null && shutdownGeneration == generation)
             return shutdownTask;
 
         shutdownGeneration = generation;
-        shutdownTask = Task.CompletedTask;
-        runtimeComponentRegistry.DisposeTrackedComponents();
+        shutdownTask = runtimeComponentRegistry.ShutdownTrackedComponentsAsync(context);
         return shutdownTask;
     }
 

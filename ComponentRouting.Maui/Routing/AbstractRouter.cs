@@ -269,8 +269,11 @@ public abstract class AbstractRouter : Router
     {
         options ??= new RouterShutdownOptions();
         var generation = RuntimeLifecycle.BeginShutdown();
-        Task result;
-        var shouldDisposeTrackedComponents = false;
+        var context = new RouterShutdownContext(
+            generation,
+            RuntimeLifecycle.IsShuttingDown,
+            RuntimeLifecycle.ShutdownToken,
+            options.Reason);
 
         lock (shutdownGate)
         {
@@ -278,15 +281,9 @@ public abstract class AbstractRouter : Router
                 return shutdownTask;
 
             shutdownGeneration = generation;
-            shutdownTask = Task.CompletedTask;
-            result = shutdownTask;
-            shouldDisposeTrackedComponents = true;
+            shutdownTask = RuntimeComponentRegistry.ShutdownTrackedComponentsAsync(context);
+            return shutdownTask;
         }
-
-        if (shouldDisposeTrackedComponents)
-            RuntimeComponentRegistry.DisposeTrackedComponents();
-
-        return result;
     }
 
     public virtual Task UnpresentComponentStack()

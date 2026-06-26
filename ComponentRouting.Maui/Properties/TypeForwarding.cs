@@ -11,6 +11,8 @@ using ComponentRouting.Maui.Service.Core;
 [assembly: TypeForwardedTo(typeof(AppLifecycleAwareComponent))]
 [assembly: TypeForwardedTo(typeof(Component))]
 [assembly: TypeForwardedTo(typeof(ComponentFactory))]
+[assembly: TypeForwardedTo(typeof(IRouterShutdownAwareComponent))]
+[assembly: TypeForwardedTo(typeof(IRouterShutdownAwarePresenter))]
 [assembly: TypeForwardedTo(typeof(Presenter))]
 [assembly: TypeForwardedTo(typeof(RoutableComponent<,>))]
 [assembly: TypeForwardedTo(typeof(Router))]

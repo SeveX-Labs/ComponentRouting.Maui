@@ -153,6 +153,141 @@ public class RouterRuntimeLifecycleTests
         Assert.Equal(1, component.ConfigureCount);
         Assert.Equal(1, router.TrackedRuntimeComponentCount);
     }
+
+    [Fact]
+    public async Task ShutdownAsync_calls_shutdown_aware_component_before_dispose()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var events = new List<string>();
+        var component = new ShutdownAwareRoutableComponent(events);
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.ShutdownHookCount);
+        Assert.Equal(1, component.DisposeCount);
+        Assert.Equal(new[] { "component-hook", "component-dispose" }, events);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_calls_all_shutdown_hooks_before_disposing_components()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var events = new List<string>();
+        var firstComponent = new ShutdownAwareRoutableComponent(events);
+        var secondComponent = new ShutdownAwareRoutableComponent(events);
+        router.TrackRuntimeComponentForTest(firstComponent);
+        router.TrackRuntimeComponentForTest(secondComponent);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(new[]
+        {
+            "component-hook",
+            "component-hook",
+            "component-dispose",
+            "component-dispose"
+        }, events);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_passes_shutdown_context_to_component_hook()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var component = new ShutdownAwareRoutableComponent();
+        var shutdownToken = runtime.ShutdownToken;
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync(new RouterShutdownOptions { Reason = RouterShutdownReason.ApplicationShutdown });
+
+        Assert.NotNull(component.LastShutdownContext);
+        Assert.True(component.LastShutdownContext.IsShuttingDown);
+        Assert.Equal(1, component.LastShutdownContext.Generation);
+        Assert.Equal(RouterShutdownReason.ApplicationShutdown, component.LastShutdownContext.Reason);
+        Assert.True(component.LastShutdownContext.ShutdownToken.IsCancellationRequested);
+        Assert.True(shutdownToken.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_calls_shutdown_aware_component_once_when_tracked_multiple_times()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var component = new ShutdownAwareRoutableComponent();
+        router.TrackRuntimeComponentForTest(component);
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.ShutdownHookCount);
+        Assert.Equal(1, component.DisposeCount);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_idempotence_does_not_call_shutdown_hook_twice()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var component = new ShutdownAwareRoutableComponent();
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.ShutdownHookCount);
+        Assert.Equal(1, component.DisposeCount);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_calls_presenter_shutdown_hook_before_component_dispose()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var events = new List<string>();
+        var presenter = new ShutdownAwarePresenter(events);
+        var component = new ShutdownAwareRoutableComponent(events, presenter);
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.ShutdownHookCount);
+        Assert.Equal(1, presenter.ShutdownHookCount);
+        Assert.Equal(1, component.DisposeCount);
+        Assert.Equal(new[] { "component-hook", "presenter-hook", "component-dispose" }, events);
+        Assert.NotNull(presenter.LastShutdownContext);
+        Assert.True(presenter.LastShutdownContext.IsShuttingDown);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_still_disposes_non_shutdown_aware_component()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var component = new ConfigurableRoutableComponent();
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.DisposeCount);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_hook_exception_is_best_effort_and_component_is_still_disposed()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var component = new ThrowingShutdownAwareRoutableComponent();
+        router.TrackRuntimeComponentForTest(component);
+
+        await router.ShutdownAsync();
+
+        Assert.Equal(1, component.ShutdownHookCount);
+        Assert.Equal(1, component.DisposeCount);
+        Assert.Equal(0, router.TrackedRuntimeComponentCount);
+    }
 }
 
 public sealed class TestRoutableComponent : TestComponent, RoutableComponent<object, object>
@@ -199,6 +334,111 @@ public sealed class ConfigurableRoutableComponent : Component, RoutableComponent
     public bool Unpresent() => true;
 }
 
+public sealed class ShutdownAwareRoutableComponent : Component, RoutableComponent<object, object>, IRouterShutdownAwareComponent
+{
+    private bool wasLayoutConfigured;
+    private readonly IList<string> events;
+
+    public ShutdownAwareRoutableComponent(IList<string>? events = null, Presenter? presenter = null)
+    {
+        this.events = events ?? new List<string>();
+        Presenter = presenter;
+    }
+
+    public Presenter? Presenter { get; private set; }
+    public int ConfigureCount { get; private set; }
+    public int InitializeCount { get; private set; }
+    public int ShutdownHookCount { get; private set; }
+    public int DisposeCount { get; private set; }
+    public RouterShutdownContext? LastShutdownContext { get; private set; }
+    public IReadOnlyList<string> Events => events.ToList();
+
+    public Task<Presenter> Prepare(object state)
+    {
+        if (!wasLayoutConfigured)
+        {
+            wasLayoutConfigured = true;
+            ConfigureCount++;
+            Presenter ??= new TestPresenter();
+        }
+
+        InitializeCount++;
+        return Task.FromResult(Presenter!);
+    }
+
+    public Task<object> Present() => Task.FromResult<object>(new object());
+
+    public ValueTask OnRouterShutdownAsync(RouterShutdownContext context)
+    {
+        ShutdownHookCount++;
+        LastShutdownContext = context;
+        events.Add("component-hook");
+        return ValueTask.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        DisposeCount++;
+        events.Add("component-dispose");
+        Presenter = null;
+        wasLayoutConfigured = false;
+    }
+
+    public void Resume()
+    {
+    }
+
+    public bool Unpresent() => true;
+}
+
+public sealed class ThrowingShutdownAwareRoutableComponent : Component, RoutableComponent<object, object>, IRouterShutdownAwareComponent
+{
+    public Presenter? Presenter { get; }
+    public int ShutdownHookCount { get; private set; }
+    public int DisposeCount { get; private set; }
+
+    public Task<Presenter> Prepare(object state) => Task.FromResult<Presenter>(new TestPresenter());
+    public Task<object> Present() => Task.FromResult<object>(new object());
+
+    public ValueTask OnRouterShutdownAsync(RouterShutdownContext context)
+    {
+        ShutdownHookCount++;
+        throw new InvalidOperationException("Shutdown hook failed.");
+    }
+
+    public void Dispose()
+    {
+        DisposeCount++;
+    }
+
+    public void Resume()
+    {
+    }
+
+    public bool Unpresent() => true;
+}
+
 public sealed class TestPresenter : Presenter
 {
+}
+
+public sealed class ShutdownAwarePresenter : Presenter, IRouterShutdownAwarePresenter
+{
+    private readonly IList<string> events;
+
+    public ShutdownAwarePresenter(IList<string> events)
+    {
+        this.events = events;
+    }
+
+    public int ShutdownHookCount { get; private set; }
+    public RouterShutdownContext? LastShutdownContext { get; private set; }
+
+    public ValueTask OnRouterShutdownAsync(RouterShutdownContext context)
+    {
+        ShutdownHookCount++;
+        LastShutdownContext = context;
+        events.Add("presenter-hook");
+        return ValueTask.CompletedTask;
+    }
 }
