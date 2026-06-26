@@ -704,6 +704,9 @@ public abstract class AbstractRouter : Router
         Page? mountablePage = null,
         INavigation? navigation = null)
     {
+        if (RuntimeLifecycle.IsShuttingDown)
+            return;
+
         if (ChromeService is null)
             return;
 
@@ -730,6 +733,9 @@ public abstract class AbstractRouter : Router
         Page? mountablePage = null,
         INavigation? navigation = null)
     {
+        if (RuntimeLifecycle.IsShuttingDown)
+            return;
+
         if (ChromeService is null)
             return;
 

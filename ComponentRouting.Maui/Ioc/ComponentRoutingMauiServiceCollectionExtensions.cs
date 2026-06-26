@@ -43,6 +43,8 @@ internal static class ComponentRoutingMauiServiceCollectionExtensions
 
     public static IServiceCollection RegisterComponentRoutingMauiPlatformChromeServices(this IServiceCollection services)
     {
+        services.TryAddSingleton<RouterRuntimeLifecycle>();
+
 #if ANDROID
         services.TryAddSingleton<AndroidModalWindowDiscoveryService>();
         services.TryAddSingleton<AndroidWindowChromeApplier>();
@@ -55,7 +57,8 @@ internal static class ComponentRoutingMauiServiceCollectionExtensions
             new PlatformComponentChromeService(
                 serviceProvider.GetRequiredService<IosWindowChromeApplier>(),
                 serviceProvider.GetRequiredService<IosStatusBarStyleCoordinator>(),
-                serviceProvider.GetRequiredService<IosStatusBarHostControllerService>())));
+                serviceProvider.GetRequiredService<IosStatusBarHostControllerService>(),
+                serviceProvider.GetRequiredService<RouterRuntimeLifecycle>())));
 #else
         services.Replace(ServiceDescriptor.Singleton<ComponentChromeService, PlatformComponentChromeService>());
 #endif

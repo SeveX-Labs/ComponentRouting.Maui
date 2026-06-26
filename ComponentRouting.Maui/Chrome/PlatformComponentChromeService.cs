@@ -9,6 +9,8 @@ namespace ComponentRouting.Maui.Chrome;
 
 public sealed class PlatformComponentChromeService : ComponentChromeService
 {
+    private readonly RouterRuntimeLifecycle? runtimeLifecycle;
+
 #if ANDROID
     private readonly AndroidModalWindowDiscoveryService discovery;
     private readonly AndroidWindowChromeApplier applier;
@@ -18,10 +20,12 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     public PlatformComponentChromeService(
         AndroidModalWindowDiscoveryService discovery,
-        AndroidWindowChromeApplier applier)
+        AndroidWindowChromeApplier applier,
+        RouterRuntimeLifecycle? runtimeLifecycle = null)
     {
         this.discovery = discovery;
         this.applier = applier;
+        this.runtimeLifecycle = runtimeLifecycle;
     }
 #elif IOS
     private readonly IosWindowChromeApplier iosApplier;
@@ -31,20 +35,26 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
     internal PlatformComponentChromeService(
         IosWindowChromeApplier iosApplier,
         IosStatusBarStyleCoordinator iosStatusBarStyleCoordinator,
-        IosStatusBarHostControllerService iosStatusBarHostControllerService)
+        IosStatusBarHostControllerService iosStatusBarHostControllerService,
+        RouterRuntimeLifecycle? runtimeLifecycle = null)
     {
         this.iosApplier = iosApplier;
         this.iosStatusBarStyleCoordinator = iosStatusBarStyleCoordinator;
         this.iosStatusBarHostControllerService = iosStatusBarHostControllerService;
+        this.runtimeLifecycle = runtimeLifecycle;
     }
 #else
-    public PlatformComponentChromeService()
+    public PlatformComponentChromeService(RouterRuntimeLifecycle? runtimeLifecycle = null)
     {
+        this.runtimeLifecycle = runtimeLifecycle;
     }
 #endif
 
     public void Apply(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
 #if IOS
         ApplyIos(context);
 #else
@@ -59,6 +69,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     public void RegisterLifecycle(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
         if (!context.Options.HasAnyConfiguredValue)
             return;
 
@@ -70,11 +83,21 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 #if ANDROID
     private void ApplyAndroid(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
         if (!MainThread.IsMainThread)
         {
-            MainThread.BeginInvokeOnMainThread(() => ApplyAndroid(context));
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (!IsShuttingDown)
+                    ApplyAndroid(context);
+            });
             return;
         }
+
+        if (IsShuttingDown)
+            return;
 
         if (context.PresentationKind is ComponentPresentationKind.Modal or ComponentPresentationKind.FullscreenModal)
         {
@@ -91,6 +114,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     private void RegisterAndroidLifecycle(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
         var seenPages = new HashSet<int>();
         RegisterAndroidLifecycle(context, context.MountablePage, seenPages);
         RegisterAndroidLifecycle(context, context.Component.Presenter as Page, seenPages);
@@ -128,6 +154,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 
     private void ScheduleAppearingReapply(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
         _ = ReapplyAfterDelay(context, 16);
         _ = ReapplyAfterDelay(context, 100);
         _ = ReapplyAfterDelay(context, 300);
@@ -136,6 +165,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
     private async Task ReapplyAfterDelay(ComponentChromeContext context, int delayMilliseconds)
     {
         await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+        if (IsShuttingDown)
+            return;
+
         Apply(context);
     }
 
@@ -145,11 +177,21 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
 #if IOS
     private void ApplyIos(ComponentChromeContext context)
     {
+        if (IsShuttingDown)
+            return;
+
         if (!MainThread.IsMainThread)
         {
-            MainThread.BeginInvokeOnMainThread(() => ApplyIos(context));
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (!IsShuttingDown)
+                    ApplyIos(context);
+            });
             return;
         }
+
+        if (IsShuttingDown)
+            return;
 
         var window = iosStatusBarHostControllerService.ResolveWindow();
         iosStatusBarHostControllerService.EnsureInstalled(window);
@@ -159,4 +201,6 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
         iosApplier.Apply(context);
     }
 #endif
+
+    private bool IsShuttingDown => runtimeLifecycle?.IsShuttingDown == true;
 }
