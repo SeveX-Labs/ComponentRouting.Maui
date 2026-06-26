@@ -12,22 +12,15 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		router.BeginNewRuntime();
-
-		var window = new Window(new ContentPage());
+		var window = new Window(new ContentPage())
+			.UseComponentRoutingMauiLifecycle(router);
 		window.Created += HandleWindowCreated;
 		window.Stopped += async (_, _) => await router.DispatchSleep();
-		window.Destroying += (_, _) => _ = router.ShutdownAsync(new RouterShutdownOptions
-		{
-			Reason = RouterShutdownReason.WindowDestroying,
-			DisconnectMauiPageTree = true
-		});
 		return window;
 	}
 
 	private void HandleWindowCreated(object? sender, EventArgs e)
 	{
-		router.BeginNewRuntime();
 		_ = router.PresentComponent<Components.Root.SampleModeRootComponent, bool, bool>(true);
 	}
 }
