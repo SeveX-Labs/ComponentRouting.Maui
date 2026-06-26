@@ -158,6 +158,17 @@ public sealed class TestRouter : Router
         return shutdownTask;
     }
 
+    public void BeginNewRuntime()
+    {
+        runtimeLifecycle.BeginNewRuntime();
+
+        if (runtimeLifecycle.IsShuttingDown)
+            return;
+
+        shutdownGeneration = -1;
+        shutdownTask = null;
+    }
+
     public bool OnDeviceBackPressed() => false;
 
     private async Task ShutdownInternalAsync(RouterShutdownContext context)

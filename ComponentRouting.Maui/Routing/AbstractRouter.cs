@@ -288,6 +288,20 @@ public abstract class AbstractRouter : Router
         }
     }
 
+    public virtual void BeginNewRuntime()
+    {
+        RuntimeLifecycle.BeginNewRuntime();
+
+        lock (shutdownGate)
+        {
+            if (RuntimeLifecycle.IsShuttingDown)
+                return;
+
+            shutdownGeneration = -1;
+            shutdownTask = null;
+        }
+    }
+
     private async Task ShutdownInternalAsync(
         RouterShutdownContext context,
         RouterShutdownOptions options)

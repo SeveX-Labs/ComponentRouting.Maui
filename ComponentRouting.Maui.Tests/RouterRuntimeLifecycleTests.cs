@@ -64,6 +64,105 @@ public class RouterRuntimeLifecycleTests
     }
 
     [Fact]
+    public async Task BeginNewRuntime_after_shutdown_reopens_runtime()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        await router.ShutdownAsync();
+
+        router.BeginNewRuntime();
+
+        Assert.False(runtime.IsShuttingDown);
+        Assert.Equal(2, runtime.Generation);
+        Assert.False(runtime.ShutdownToken.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task PresentComponent_is_not_blocked_after_begin_new_runtime()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        await router.ShutdownAsync();
+        router.BeginNewRuntime();
+
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            router.PresentComponent<TestRoutableComponent, object, object>(new object()));
+
+        Assert.Equal(1, router.PresentInvocationCount);
+    }
+
+    [Fact]
+    public async Task BeginNewRuntime_after_shutdown_increments_generation_once()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+
+        await router.ShutdownAsync();
+        var shutdownGeneration = runtime.Generation;
+        router.BeginNewRuntime();
+        var newRuntimeGeneration = runtime.Generation;
+        router.BeginNewRuntime();
+
+        Assert.Equal(1, shutdownGeneration);
+        Assert.Equal(2, newRuntimeGeneration);
+        Assert.Equal(newRuntimeGeneration, runtime.Generation);
+    }
+
+    [Fact]
+    public async Task BeginNewRuntime_replaces_shutdown_token()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var initialToken = runtime.ShutdownToken;
+        await router.ShutdownAsync();
+        var shutdownToken = runtime.ShutdownToken;
+
+        router.BeginNewRuntime();
+        var newRuntimeToken = runtime.ShutdownToken;
+
+        Assert.True(initialToken.IsCancellationRequested);
+        Assert.True(shutdownToken.IsCancellationRequested);
+        Assert.False(newRuntimeToken.IsCancellationRequested);
+        Assert.NotEqual(shutdownToken, newRuntimeToken);
+    }
+
+    [Fact]
+    public void BeginNewRuntime_when_not_shutting_down_is_noop()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var token = runtime.ShutdownToken;
+
+        router.BeginNewRuntime();
+
+        Assert.False(runtime.IsShuttingDown);
+        Assert.Equal(0, runtime.Generation);
+        Assert.Equal(token, runtime.ShutdownToken);
+        Assert.False(runtime.ShutdownToken.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task Shutdown_begin_new_runtime_shutdown_again_runs_second_shutdown()
+    {
+        using var runtime = new RouterRuntimeLifecycle();
+        var router = new TestRouter(runtime);
+        var firstComponent = new ConfigurableRoutableComponent();
+        router.TrackRuntimeComponentForTest(firstComponent);
+
+        await router.ShutdownAsync();
+        router.BeginNewRuntime();
+
+        var secondComponent = new ConfigurableRoutableComponent();
+        router.TrackRuntimeComponentForTest(secondComponent);
+        await router.ShutdownAsync();
+
+        Assert.Equal(3, runtime.Generation);
+        Assert.True(runtime.IsShuttingDown);
+        Assert.Equal(1, firstComponent.DisposeCount);
+        Assert.Equal(1, secondComponent.DisposeCount);
+    }
+
+    [Fact]
     public async Task PresentComponent_is_blocked_after_shutdown()
     {
         using var runtime = new RouterRuntimeLifecycle();

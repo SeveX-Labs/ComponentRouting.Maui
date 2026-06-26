@@ -37,5 +37,7 @@ public interface Router
         RouterShutdownOptions? options = null,
         CancellationToken cancellationToken = default);
 
+    void BeginNewRuntime();
+
     bool OnDeviceBackPressed();
 }

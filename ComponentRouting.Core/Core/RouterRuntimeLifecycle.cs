@@ -51,6 +51,21 @@ public sealed class RouterRuntimeLifecycle : IDisposable
         }
     }
 
+    public int BeginNewRuntime()
+    {
+        lock (gate)
+        {
+            if (!isShuttingDown)
+                return generation;
+
+            shutdownCts.Dispose();
+            shutdownCts = new CancellationTokenSource();
+            isShuttingDown = false;
+            generation++;
+            return generation;
+        }
+    }
+
     public void Dispose()
     {
         lock (gate)
