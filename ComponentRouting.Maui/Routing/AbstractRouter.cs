@@ -44,6 +44,7 @@ public abstract class AbstractRouter : Router
     private OverlaySurfaceResolver OverlaySurfaceResolver { get; }
     private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
     private RouterRuntimeLifecycle RuntimeLifecycle { get; }
+    private RouterRuntimeComponentRegistry RuntimeComponentRegistry { get; }
     private readonly object shutdownGate = new();
     private int shutdownGeneration = -1;
     private Task? shutdownTask;
@@ -81,6 +82,7 @@ public abstract class AbstractRouter : Router
         History = new ComponentHistory();
         OverlaySurfaceResolver = new OverlaySurfaceResolver();
         OverlaySurfaceOwnership = new OverlaySurfaceOwnershipRegistry();
+        RuntimeComponentRegistry = new RouterRuntimeComponentRegistry();
         // Panels = new List<ComponentHistoryItem>();
     }
 
@@ -115,6 +117,7 @@ public abstract class AbstractRouter : Router
             return;
 
         var component = ComponentFactory.CreateComponent<TComponent>();
+        RuntimeComponentRegistry.Track(component);
         await PrepareComponent(component, input);
     }
 
@@ -127,6 +130,7 @@ public abstract class AbstractRouter : Router
             throw new RouterException(RouterError.ApplicationCurrentIsNull);
 
         var component = ComponentFactory.CreateComponent<TComponent>();
+        RuntimeComponentRegistry.Track(component);
         await PrepareComponent(component, input);
 
         ThrowIfShuttingDown(component);
@@ -265,6 +269,8 @@ public abstract class AbstractRouter : Router
     {
         options ??= new RouterShutdownOptions();
         var generation = RuntimeLifecycle.BeginShutdown();
+        Task result;
+        var shouldDisposeTrackedComponents = false;
 
         lock (shutdownGate)
         {
@@ -273,8 +279,14 @@ public abstract class AbstractRouter : Router
 
             shutdownGeneration = generation;
             shutdownTask = Task.CompletedTask;
-            return shutdownTask;
+            result = shutdownTask;
+            shouldDisposeTrackedComponents = true;
         }
+
+        if (shouldDisposeTrackedComponents)
+            RuntimeComponentRegistry.DisposeTrackedComponents();
+
+        return result;
     }
 
     public virtual Task UnpresentComponentStack()
@@ -328,6 +340,7 @@ public abstract class AbstractRouter : Router
             RemoveFromComponentsStack(component);
 
             component.Dispose();
+            RuntimeComponentRegistry.Untrack(component);
         }
         catch (Exception e)
         {

@@ -1,5 +1,6 @@
 using ComponentRouting.Maui.Provider.Core;
 using ComponentRouting.Maui.Exceptions;
+using ComponentRouting.Maui.Routing;
 using NGettext;
 
 namespace ComponentRouting.Maui.Tests;
@@ -80,6 +81,7 @@ public sealed class TestLocaleProvider : LocaleProvider
 public sealed class TestRouter : Router
 {
     private readonly RouterRuntimeLifecycle runtimeLifecycle;
+    private readonly RouterRuntimeComponentRegistry runtimeComponentRegistry = new();
     private int shutdownGeneration = -1;
     private Task? shutdownTask;
 
@@ -97,6 +99,12 @@ public sealed class TestRouter : Router
     public Component? MountedComponent => null;
     public List<Component> ComponentsStack { get; } = new();
     public int PresentInvocationCount { get; private set; }
+    public int TrackedRuntimeComponentCount => runtimeComponentRegistry.Count;
+
+    public void TrackRuntimeComponentForTest(Component component)
+    {
+        runtimeComponentRegistry.Track(component);
+    }
 
     public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component => default;
@@ -141,6 +149,7 @@ public sealed class TestRouter : Router
 
         shutdownGeneration = generation;
         shutdownTask = Task.CompletedTask;
+        runtimeComponentRegistry.DisposeTrackedComponents();
         return shutdownTask;
     }
 
