@@ -1,4 +1,5 @@
 using ComponentRouting.Maui.Provider.Core;
+using ComponentRouting.Maui.Exceptions;
 using NGettext;
 
 namespace ComponentRouting.Maui.Tests;
@@ -78,9 +79,24 @@ public sealed class TestLocaleProvider : LocaleProvider
 
 public sealed class TestRouter : Router
 {
+    private readonly RouterRuntimeLifecycle runtimeLifecycle;
+    private int shutdownGeneration = -1;
+    private Task? shutdownTask;
+
+    public TestRouter()
+        : this(new RouterRuntimeLifecycle())
+    {
+    }
+
+    public TestRouter(RouterRuntimeLifecycle runtimeLifecycle)
+    {
+        this.runtimeLifecycle = runtimeLifecycle;
+    }
+
     public Component? CurrentTabComponent => null;
     public Component? MountedComponent => null;
     public List<Component> ComponentsStack { get; } = new();
+    public int PresentInvocationCount { get; private set; }
 
     public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component => default;
@@ -91,10 +107,19 @@ public sealed class TestRouter : Router
     public void CloseAllPopups() { }
 
     public Task PreloadComponent<TComponent, TState, TResult>(TState input)
-        where TComponent : RoutableComponent<TState, TResult> => Task.CompletedTask;
+        where TComponent : RoutableComponent<TState, TResult> => runtimeLifecycle.IsShuttingDown
+            ? Task.CompletedTask
+            : Task.CompletedTask;
 
     public Task<TResult> PresentComponent<TComponent, TState, TResult>(TState input)
-        where TComponent : RoutableComponent<TState, TResult> => throw new NotSupportedException();
+        where TComponent : RoutableComponent<TState, TResult>
+    {
+        if (runtimeLifecycle.IsShuttingDown)
+            throw new RouterException(RouterError.RouterIsShuttingDown);
+
+        PresentInvocationCount++;
+        throw new NotSupportedException();
+    }
 
     public Task UnpresentRootComponent() => Task.CompletedTask;
     public Task UnpresentComponentStack() => Task.CompletedTask;
@@ -105,5 +130,19 @@ public sealed class TestRouter : Router
     public void DispatchResume() { }
     public Task DispatchSleep() => Task.CompletedTask;
     public Task DispatchDestroy() => Task.CompletedTask;
+    public Task ShutdownAsync(
+        RouterShutdownOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var generation = runtimeLifecycle.BeginShutdown();
+
+        if (shutdownTask is not null && shutdownGeneration == generation)
+            return shutdownTask;
+
+        shutdownGeneration = generation;
+        shutdownTask = Task.CompletedTask;
+        return shutdownTask;
+    }
+
     public bool OnDeviceBackPressed() => false;
 }

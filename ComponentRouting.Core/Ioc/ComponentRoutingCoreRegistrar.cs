@@ -26,6 +26,7 @@ internal static class ComponentRoutingCoreRegistrar
         var discoveredTypes = GetTypes(assemblies, additionalManifestScopeNamePrefixes).ToList();
 
         services.TryAddSingleton<ComponentFactory, ServiceProviderComponentFactory>();
+        services.TryAddSingleton<RouterRuntimeLifecycle>();
 
         foreach (var componentType in discoveredTypes.Where(IsConcreteComponent))
         {

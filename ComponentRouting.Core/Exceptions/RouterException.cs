@@ -21,7 +21,9 @@ namespace ComponentRouting.Maui.Exceptions
         PresentMethodInvokeFailed,
 
         ComponentPresentationFailed,
-        ComponentDismissalNotSupported
+        ComponentDismissalNotSupported,
+
+        RouterIsShuttingDown
     }
 
     public class RouterException : Exception

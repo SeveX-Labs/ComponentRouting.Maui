@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using ComponentRouting.Maui.Abstraction;
 using ComponentRouting.Maui.Abstraction.Core;
@@ -42,14 +43,22 @@ public abstract class AbstractRouter : Router
     private ComponentHistory History { get; }
     private OverlaySurfaceResolver OverlaySurfaceResolver { get; }
     private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
+    private RouterRuntimeLifecycle RuntimeLifecycle { get; }
+    private readonly object shutdownGate = new();
+    private int shutdownGeneration = -1;
+    private Task? shutdownTask;
     // private List<ComponentHistoryItem> Panels { get; set; }
 
     #endregion
 
     #region ctor(s)
 
-    protected AbstractRouter(ComponentFactory componentFactory, CatalogProvider catalogProvider, SafeAreaInsetsService safeAreaInsetsService)
-        : this(componentFactory, catalogProvider, safeAreaInsetsService, null, null)
+    protected AbstractRouter(
+        ComponentFactory componentFactory,
+        CatalogProvider catalogProvider,
+        SafeAreaInsetsService safeAreaInsetsService,
+        RouterRuntimeLifecycle? runtimeLifecycle = null)
+        : this(componentFactory, catalogProvider, safeAreaInsetsService, null, null, runtimeLifecycle)
     {
     }
 
@@ -58,13 +67,15 @@ public abstract class AbstractRouter : Router
         CatalogProvider catalogProvider,
         SafeAreaInsetsService safeAreaInsetsService,
         ComponentChromeService? chromeService,
-        ComponentChromeOptionsResolver? chromeOptionsResolver)
+        ComponentChromeOptionsResolver? chromeOptionsResolver,
+        RouterRuntimeLifecycle? runtimeLifecycle = null)
     {
         ComponentFactory = componentFactory;
         CatalogProvider = catalogProvider;
         SafeAreaInsetsService = safeAreaInsetsService;
         ChromeService = chromeService;
         ChromeOptionsResolver = chromeOptionsResolver;
+        RuntimeLifecycle = runtimeLifecycle ?? new RouterRuntimeLifecycle();
 
         ComponentsStack = new List<Component>();
         History = new ComponentHistory();
@@ -100,7 +111,7 @@ public abstract class AbstractRouter : Router
     public async Task PreloadComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>
     {
-        if (Application.Current is null)
+        if (Application.Current is null || RuntimeLifecycle.IsShuttingDown)
             return;
 
         var component = ComponentFactory.CreateComponent<TComponent>();
@@ -110,11 +121,15 @@ public abstract class AbstractRouter : Router
     public async Task<TResult> PresentComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>
     {
+        ThrowIfShuttingDown();
+
         if (Application.Current is null)
             throw new RouterException(RouterError.ApplicationCurrentIsNull);
 
         var component = ComponentFactory.CreateComponent<TComponent>();
         await PrepareComponent(component, input);
+
+        ThrowIfShuttingDown(component);
 
         var didPresent = await MainThread.InvokeOnMainThreadAsync(async () => await PresentComponent(component, input));
         if (!didPresent)
@@ -151,12 +166,18 @@ public abstract class AbstractRouter : Router
 
     public void CloseAllPopups()
     {
+        if (RuntimeLifecycle.IsShuttingDown)
+            return;
+
         History.CloseAllPopups(ClosePopupComponent);
     }
 
     public virtual async Task DismissComponent<TComponent, TState, TResult>(bool animated = true)
         where TComponent : RoutableComponent<TState, TResult>
     {
+        if (RuntimeLifecycle.IsShuttingDown)
+            return;
+
         if (Application.Current is null)
             throw new RouterException(RouterError.ApplicationCurrentIsNull);
 
@@ -187,6 +208,9 @@ public abstract class AbstractRouter : Router
 
     public bool OnDeviceBackPressed()
     {
+        if (RuntimeLifecycle.IsShuttingDown)
+            return false;
+
         bool resolved = IsDeviceBackPressedResolved();
         _ = HandleDeviceBackPressedInternal();
         return resolved;
@@ -233,6 +257,24 @@ public abstract class AbstractRouter : Router
         OverlaySurfaceOwnership.Clear("UnpresentRootComponent");
 
         return Task.CompletedTask;
+    }
+
+    public virtual Task ShutdownAsync(
+        RouterShutdownOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= new RouterShutdownOptions();
+        var generation = RuntimeLifecycle.BeginShutdown();
+
+        lock (shutdownGate)
+        {
+            if (shutdownTask is not null && shutdownGeneration == generation)
+                return shutdownTask;
+
+            shutdownGeneration = generation;
+            shutdownTask = Task.CompletedTask;
+            return shutdownTask;
+        }
     }
 
     public virtual Task UnpresentComponentStack()
@@ -518,6 +560,12 @@ public abstract class AbstractRouter : Router
     private void DismissMostRecentHistoryItem(ComponentHistoryItem? snackbarItem, ComponentHistoryItem? popupItem, ComponentHistoryItem? panelItem)
     {
         History.DismissMostRecent(snackbarItem, popupItem, panelItem);
+    }
+
+    private void ThrowIfShuttingDown(Component? component = null)
+    {
+        if (RuntimeLifecycle.IsShuttingDown)
+            throw new RouterException(RouterError.RouterIsShuttingDown, component);
     }
 
     private void ClosePopupComponent(Component component)

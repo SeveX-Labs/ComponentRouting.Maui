@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ComponentRouting.Maui;
@@ -31,6 +32,10 @@ public interface Router
     Task DispatchSleep();
 
     Task DispatchDestroy();
+
+    Task ShutdownAsync(
+        RouterShutdownOptions? options = null,
+        CancellationToken cancellationToken = default);
 
     bool OnDeviceBackPressed();
 }

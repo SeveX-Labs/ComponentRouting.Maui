@@ -16,6 +16,7 @@ public class DependencyInjectionTests
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<ServiceProviderComponentFactory>(provider.GetRequiredService<ComponentFactory>());
+        Assert.IsType<RouterRuntimeLifecycle>(provider.GetRequiredService<RouterRuntimeLifecycle>());
     }
 
     [Fact]
