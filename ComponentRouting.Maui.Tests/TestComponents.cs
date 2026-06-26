@@ -154,9 +154,24 @@ public sealed class TestRouter : Router
             return shutdownTask;
 
         shutdownGeneration = generation;
-        shutdownTask = runtimeComponentRegistry.ShutdownTrackedComponentsAsync(context);
+        shutdownTask = ShutdownInternalAsync(context);
         return shutdownTask;
     }
 
     public bool OnDeviceBackPressed() => false;
+
+    private async Task ShutdownInternalAsync(RouterShutdownContext context)
+    {
+        var notifiedPresenters = new HashSet<IRouterShutdownAwarePresenter>(
+            ReferenceEqualityComparer<IRouterShutdownAwarePresenter>.Instance);
+
+        try
+        {
+            await runtimeComponentRegistry.InvokeShutdownHooksAsync(context, notifiedPresenters);
+        }
+        finally
+        {
+            runtimeComponentRegistry.DisposeTrackedComponents();
+        }
+    }
 }

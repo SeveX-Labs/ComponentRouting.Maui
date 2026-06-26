@@ -22,42 +22,41 @@ internal sealed class RouterRuntimeComponentRegistry
         components.Remove(component);
     }
 
-    public Task ShutdownTrackedComponentsAsync(RouterShutdownContext context)
+    public Task InvokeShutdownHooksAsync(
+        RouterShutdownContext context,
+        ISet<IRouterShutdownAwarePresenter> notifiedPresenters)
     {
         var componentsSnapshot = components.ToList();
         if (!componentsSnapshot.Any())
             return Task.CompletedTask;
 
-        return ShutdownTrackedComponentsInternalAsync(componentsSnapshot, context);
+        return InvokeShutdownHooksInternalAsync(componentsSnapshot, context, notifiedPresenters);
     }
 
-    private async Task ShutdownTrackedComponentsInternalAsync(
-        IReadOnlyList<Component> componentsSnapshot,
-        RouterShutdownContext context)
+    public void DisposeTrackedComponents()
     {
+        var componentsSnapshot = components.ToList();
+
         try
         {
             foreach (var component in componentsSnapshot)
-            {
-                await NotifyComponentShutdownAsync(component, context);
-                await NotifyPresenterShutdownAsync(component, context);
-            }
-
-            foreach (var component in componentsSnapshot)
-            {
-                try
-                {
-                    component.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex);
-                }
-            }
+                DisposeComponent(component);
         }
         finally
         {
             components.Clear();
+        }
+    }
+
+    private static async Task InvokeShutdownHooksInternalAsync(
+        IReadOnlyList<Component> componentsSnapshot,
+        RouterShutdownContext context,
+        ISet<IRouterShutdownAwarePresenter> notifiedPresenters)
+    {
+        foreach (var component in componentsSnapshot)
+        {
+            await NotifyComponentShutdownAsync(component, context);
+            await NotifyPresenterShutdownAsync(component, context, notifiedPresenters);
         }
     }
 
@@ -80,14 +79,30 @@ internal sealed class RouterRuntimeComponentRegistry
 
     private static async ValueTask NotifyPresenterShutdownAsync(
         Component component,
-        RouterShutdownContext context)
+        RouterShutdownContext context,
+        ISet<IRouterShutdownAwarePresenter> notifiedPresenters)
     {
         if (component.Presenter is not IRouterShutdownAwarePresenter shutdownAwarePresenter)
+            return;
+
+        if (!notifiedPresenters.Add(shutdownAwarePresenter))
             return;
 
         try
         {
             await shutdownAwarePresenter.OnRouterShutdownAsync(context);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+    }
+
+    private static void DisposeComponent(Component component)
+    {
+        try
+        {
+            component.Dispose();
         }
         catch (Exception ex)
         {

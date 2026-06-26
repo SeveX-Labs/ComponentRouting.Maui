@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 namespace ComponentRouting.Maui.Routing;
 
 internal sealed class ReferenceEqualityComparer<TComponent> : IEqualityComparer<TComponent>
-    where TComponent: Component
+    where TComponent: class
 {
     public static ReferenceEqualityComparer<TComponent> Instance { get; } = new();
 

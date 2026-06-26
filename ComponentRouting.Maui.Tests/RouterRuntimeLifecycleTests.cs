@@ -16,6 +16,22 @@ public class RouterRuntimeLifecycleTests
     }
 
     [Fact]
+    public void RouterShutdownOptions_disconnects_maui_page_tree_by_default()
+    {
+        var options = new RouterShutdownOptions();
+
+        Assert.True(options.DisconnectMauiPageTree);
+    }
+
+    [Fact]
+    public void RouterShutdownOptions_can_disable_maui_page_tree_disconnect()
+    {
+        var options = new RouterShutdownOptions { DisconnectMauiPageTree = false };
+
+        Assert.False(options.DisconnectMauiPageTree);
+    }
+
+    [Fact]
     public void ShutdownAsync_marks_runtime_shutting_down_synchronously()
     {
         using var runtime = new RouterRuntimeLifecycle();

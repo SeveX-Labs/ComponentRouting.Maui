@@ -45,6 +45,7 @@ public abstract class AbstractRouter : Router
     private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
     private RouterRuntimeLifecycle RuntimeLifecycle { get; }
     private RouterRuntimeComponentRegistry RuntimeComponentRegistry { get; }
+    private MauiPageTreeShutdownService PageTreeShutdownService { get; }
     private readonly object shutdownGate = new();
     private int shutdownGeneration = -1;
     private Task? shutdownTask;
@@ -83,6 +84,7 @@ public abstract class AbstractRouter : Router
         OverlaySurfaceResolver = new OverlaySurfaceResolver();
         OverlaySurfaceOwnership = new OverlaySurfaceOwnershipRegistry();
         RuntimeComponentRegistry = new RouterRuntimeComponentRegistry();
+        PageTreeShutdownService = new MauiPageTreeShutdownService();
         // Panels = new List<ComponentHistoryItem>();
     }
 
@@ -281,8 +283,28 @@ public abstract class AbstractRouter : Router
                 return shutdownTask;
 
             shutdownGeneration = generation;
-            shutdownTask = RuntimeComponentRegistry.ShutdownTrackedComponentsAsync(context);
+            shutdownTask = ShutdownInternalAsync(context, options);
             return shutdownTask;
+        }
+    }
+
+    private async Task ShutdownInternalAsync(
+        RouterShutdownContext context,
+        RouterShutdownOptions options)
+    {
+        var notifiedPresenters = new HashSet<IRouterShutdownAwarePresenter>(
+            ReferenceEqualityComparer<IRouterShutdownAwarePresenter>.Instance);
+
+        try
+        {
+            await RuntimeComponentRegistry.InvokeShutdownHooksAsync(context, notifiedPresenters);
+
+            if (options.DisconnectMauiPageTree)
+                await PageTreeShutdownService.DisconnectCurrentApplicationPageTreesAsync(context, notifiedPresenters);
+        }
+        finally
+        {
+            RuntimeComponentRegistry.DisposeTrackedComponents();
         }
     }
 
