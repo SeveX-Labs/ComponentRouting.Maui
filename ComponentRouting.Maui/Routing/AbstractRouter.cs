@@ -115,6 +115,8 @@ public abstract class AbstractRouter : Router
     public async Task PreloadComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         if (Application.Current is null || RuntimeLifecycle.IsShuttingDown)
             return;
 
@@ -126,6 +128,7 @@ public abstract class AbstractRouter : Router
     public async Task<TResult> PresentComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>
     {
+        WarnIfWindowLifecycleWasNotAttached();
         ThrowIfShuttingDown();
 
         if (Application.Current is null)
@@ -172,6 +175,8 @@ public abstract class AbstractRouter : Router
 
     public void CloseAllPopups()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         if (RuntimeLifecycle.IsShuttingDown)
             return;
 
@@ -181,6 +186,8 @@ public abstract class AbstractRouter : Router
     public virtual async Task DismissComponent<TComponent, TState, TResult>(bool animated = true)
         where TComponent : RoutableComponent<TState, TResult>
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         if (RuntimeLifecycle.IsShuttingDown)
             return;
 
@@ -204,16 +211,22 @@ public abstract class AbstractRouter : Router
 
     public async Task DispatchSleep()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         await DispatchLifecycleEvent(component => component.HandleAppSleepAsync());
     }
 
     public async Task DispatchDestroy()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         await DispatchLifecycleEvent(component => component.HandleAppDestroyAsync());
     }
 
     public bool OnDeviceBackPressed()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         if (RuntimeLifecycle.IsShuttingDown)
             return false;
 
@@ -224,12 +237,16 @@ public abstract class AbstractRouter : Router
 
     public void DispatchResume()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         foreach (var component in GetResumeComponents())
             component.Resume();
     }
 
     public virtual Task UnpresentRootComponent()
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         if (History.Snackbars.Any())
         {
             foreach (var snackbar in History.ClearSnackbars())
@@ -269,6 +286,8 @@ public abstract class AbstractRouter : Router
         RouterShutdownOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        WarnIfWindowLifecycleWasNotAttached();
+
         options ??= new RouterShutdownOptions();
         var generation = RuntimeLifecycle.BeginShutdown();
         var context = new RouterShutdownContext(
@@ -612,6 +631,11 @@ public abstract class AbstractRouter : Router
     {
         if (RuntimeLifecycle.IsShuttingDown)
             throw new RouterException(RouterError.RouterIsShuttingDown, component);
+    }
+
+    private static void WarnIfWindowLifecycleWasNotAttached()
+    {
+        ComponentRoutingMauiLifecycleDiagnostics.WarnIfAutomaticPlatformLifecycleEnabledWithoutWindowLifecycle();
     }
 
     private void ClosePopupComponent(Component component)

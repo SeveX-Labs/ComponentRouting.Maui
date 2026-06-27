@@ -20,6 +20,8 @@ public static class ComponentRoutingMauiWindowLifecycleExtensions
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(router);
 
+        ComponentRoutingMauiLifecycleDiagnostics.MarkWindowLifecycleAttached();
+
         if ((bool)window.GetValue(IsLifecycleAttachedProperty))
             return window;
 

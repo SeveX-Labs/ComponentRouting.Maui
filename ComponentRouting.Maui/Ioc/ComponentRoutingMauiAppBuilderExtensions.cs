@@ -34,7 +34,10 @@ public static class ComponentRoutingMauiAppBuilderExtensions
         builder.Services.RegisterComponentRoutingMauiPlatformChromeServices();
 
         if (runtimeOptions.UseAutomaticPlatformLifecycle)
+        {
+            ComponentRoutingMauiLifecycleDiagnostics.MarkAutomaticPlatformLifecycleEnabled();
             RegisterAutomaticPlatformLifecycle(builder, runtimeOptions);
+        }
 
 #if IOS
         builder.ConfigureMauiHandlers(handlers =>
