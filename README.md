@@ -108,6 +108,12 @@ var window = new Window(rootPage)
 
 `EnableAutomaticPlatformLifecycle()` currently adds Android native lifecycle protection only. On Android, it calls `Router.BeginNewRuntime()` from `Activity.OnCreate` and `Router.ShutdownAsync(...)` from `Activity.OnDestroy`, using the same default shutdown options. It does not add iOS native background or scene lifecycle hooks.
 
+> `EnableAutomaticPlatformLifecycle()` does not replace `UseComponentRoutingMauiLifecycle(...)`.
+> The window lifecycle helper is the cross-platform MAUI `Window` integration point.
+> The automatic platform lifecycle currently adds Android `Activity.OnCreate` / `Activity.OnDestroy` integration only, as an additional safety net for activity recreation and process-alive destroy scenarios.
+
+If an app enables `EnableAutomaticPlatformLifecycle()` but does not attach `UseComponentRoutingMauiLifecycle(...)` to its `Window`, `Window.Created` and `Window.Destroying` are not connected to the router. That means `Router.BeginNewRuntime()` is not called for MAUI `Window.Created`, and `Router.ShutdownAsync(...)` is not called for MAUI `Window.Destroying`; shutdown-aware hooks, tracked component disposal, and conservative MAUI page tree disconnect only run when another code path explicitly calls `Router.ShutdownAsync(...)`.
+
 During shutdown, the router blocks new navigation and chrome work, calls shutdown-aware component and presenter hooks, disposes tracked runtime components, and can conservatively disconnect the MAUI page tree during window/activity destroy.
 
 What remains app-side:
