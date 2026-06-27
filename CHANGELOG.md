@@ -1,5 +1,32 @@
 # Changelog
 
+## [5.0.0] - 2026-06-27
+
+### Added
+
+- Added `Router.ShutdownAsync(...)` for explicit router runtime shutdown.
+- Added `Router.BeginNewRuntime()` to reopen the router runtime after shutdown.
+- Added `RouterRuntimeLifecycle` to track runtime generation and shutdown state.
+- Added `RouterShutdownOptions`, `RouterShutdownReason`, and `RouterShutdownContext`.
+- Added `RouterError.RouterIsShuttingDown` so navigation attempted during shutdown fails explicitly.
+- Added tracked component disposal during shutdown.
+- Added shutdown-aware hooks through `IRouterShutdownAwareComponent` and `IRouterShutdownAwarePresenter`.
+- Added conservative MAUI page tree disconnect support during shutdown.
+- Added opt-in MAUI `Window` lifecycle wiring through `window.UseComponentRoutingMauiLifecycle(router)`.
+- Added opt-in Android native lifecycle wiring through `runtime.EnableAutomaticPlatformLifecycle()`.
+- Added diagnostics for apps that enable automatic platform lifecycle but do not attach a `Window` with `UseComponentRoutingMauiLifecycle(...)`.
+
+### Changed
+
+- Router shutdown now blocks new navigation and platform chrome work while the runtime is shutting down.
+- SampleApp and README now document the recommended runtime lifecycle pattern.
+
+### Compatibility
+
+- This is a major release for the new runtime lifecycle and shutdown model.
+- No public APIs were removed in this release.
+- `EnableAutomaticPlatformLifecycle()` is Android-specific and does not replace the cross-platform `UseComponentRoutingMauiLifecycle(...)` window helper.
+
 ## [4.0.2] - 2026-06-26
 
 ### Fixed
