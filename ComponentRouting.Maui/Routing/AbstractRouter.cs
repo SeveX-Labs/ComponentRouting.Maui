@@ -45,6 +45,7 @@ public abstract class AbstractRouter : Router
     private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
     private RouterRuntimeLifecycle RuntimeLifecycle { get; }
     private RouterRuntimeComponentRegistry RuntimeComponentRegistry { get; }
+    private RouterComponentMountRegistry<Page> ComponentMountRegistry { get; }
     private MauiPageTreeShutdownService PageTreeShutdownService { get; }
     private readonly object shutdownGate = new();
     private int shutdownGeneration = -1;
@@ -84,6 +85,7 @@ public abstract class AbstractRouter : Router
         OverlaySurfaceResolver = new OverlaySurfaceResolver();
         OverlaySurfaceOwnership = new OverlaySurfaceOwnershipRegistry();
         RuntimeComponentRegistry = new RouterRuntimeComponentRegistry();
+        ComponentMountRegistry = new RouterComponentMountRegistry<Page>();
         PageTreeShutdownService = new MauiPageTreeShutdownService();
         // Panels = new List<ComponentHistoryItem>();
     }
@@ -269,6 +271,7 @@ public abstract class AbstractRouter : Router
                 component.Unpresent();
         }
         ComponentsStack = new List<Component>();
+        ComponentMountRegistry.ClearMounts();
 
         CurrentTabComponent?.Unpresent();
         CurrentFlyoutComponent?.Unpresent();
@@ -338,6 +341,7 @@ public abstract class AbstractRouter : Router
         finally
         {
             RuntimeComponentRegistry.DisposeTrackedComponents();
+            ComponentMountRegistry.ClearMounts();
         }
     }
 
@@ -389,10 +393,7 @@ public abstract class AbstractRouter : Router
                 CurrentFlyoutComponent = null;
             }
 
-            RemoveFromComponentsStack(component);
-
-            component.Dispose();
-            RuntimeComponentRegistry.Untrack(component);
+            FinalizeComponent(component);
         }
         catch (Exception e)
         {
@@ -665,6 +666,7 @@ public abstract class AbstractRouter : Router
         ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("BeforePushAsync", component, presentationKind, page, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushAsync(page));
+        ComponentMountRegistry.Track(component, page);
         ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("AfterPushAsync", component, presentationKind, page, navigation);
     }
@@ -872,12 +874,62 @@ public abstract class AbstractRouter : Router
         if (!stack.Any())
             throw new RouterException(RouterError.EmptyNavigationStack, component);
 
-        if (stack.Last() != component.Presenter)
+        if (!TryResolvePushablePage(component, out var targetComponent, out var page) ||
+            !stack.Contains(page))
+        {
             throw new RouterException(RouterError.PresenterIsNotOnTopNavigationStack, component);
+        }
+
+        if (stack.Last() == page)
+        {
+            RemoveFromComponentsStack(targetComponent);
+
+            await navigation.PopAsync(animated);
+            ComponentMountRegistry.Remove(targetComponent);
+            return;
+        }
+
+        navigation.RemovePage(page);
+        ComponentMountRegistry.Remove(targetComponent);
+        FinalizeComponent(targetComponent);
+    }
+
+    private bool TryResolvePushablePage(Component component, out Component targetComponent, out Page page)
+    {
+        if (ComponentMountRegistry.TryResolve(component, out targetComponent, out page))
+            return true;
+
+        if (component.Presenter is Page presenterPage)
+        {
+            targetComponent = component;
+            page = presenterPage;
+            return true;
+        }
+
+        targetComponent = null!;
+        page = null!;
+        return false;
+    }
+
+    private void FinalizeComponent(Component component)
+    {
+        if (!ComponentMountRegistry.TryBeginFinalize(component))
+            return;
 
         RemoveFromComponentsStack(component);
 
-        await navigation.PopAsync(animated);
+        try
+        {
+            component.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+        finally
+        {
+            RuntimeComponentRegistry.Untrack(component);
+        }
     }
 
     private async Task<bool> PopModalComponentInternal(Component component, bool animated)
