@@ -35,6 +35,23 @@ public class RouterComponentMountRegistryTests
     }
 
     [Fact]
+    public void TryResolve_returns_tracked_mount_with_owner()
+    {
+        var registry = new RouterComponentMountRegistry<RouterComponentMount<object, object>>();
+        var component = new TestComponent();
+        var page = new object();
+        var ownerNavigation = new object();
+        var mount = new RouterComponentMount<object, object>(page, ownerNavigation);
+
+        registry.Track(component, mount);
+
+        Assert.True(registry.TryResolve(component, out var trackedComponent, out var trackedMount));
+        Assert.Same(component, trackedComponent);
+        Assert.Same(page, trackedMount.Mount);
+        Assert.Same(ownerNavigation, trackedMount.Owner);
+    }
+
+    [Fact]
     public void TryBeginFinalize_is_idempotent_until_component_is_tracked_again()
     {
         var registry = new RouterComponentMountRegistry<object>();

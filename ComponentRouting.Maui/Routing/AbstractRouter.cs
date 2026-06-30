@@ -45,7 +45,7 @@ public abstract class AbstractRouter : Router
     private OverlaySurfaceOwnershipRegistry OverlaySurfaceOwnership { get; }
     private RouterRuntimeLifecycle RuntimeLifecycle { get; }
     private RouterRuntimeComponentRegistry RuntimeComponentRegistry { get; }
-    private RouterComponentMountRegistry<Page> ComponentMountRegistry { get; }
+    private RouterComponentMountRegistry<RouterComponentMount<Page, INavigation>> ComponentMountRegistry { get; }
     private MauiPageTreeShutdownService PageTreeShutdownService { get; }
     private readonly object shutdownGate = new();
     private int shutdownGeneration = -1;
@@ -85,7 +85,7 @@ public abstract class AbstractRouter : Router
         OverlaySurfaceResolver = new OverlaySurfaceResolver();
         OverlaySurfaceOwnership = new OverlaySurfaceOwnershipRegistry();
         RuntimeComponentRegistry = new RouterRuntimeComponentRegistry();
-        ComponentMountRegistry = new RouterComponentMountRegistry<Page>();
+        ComponentMountRegistry = new RouterComponentMountRegistry<RouterComponentMount<Page, INavigation>>();
         PageTreeShutdownService = new MauiPageTreeShutdownService();
         // Panels = new List<ComponentHistoryItem>();
     }
@@ -652,13 +652,9 @@ public abstract class AbstractRouter : Router
 
         var window = Application.Current!.Windows.First();
 
-        INavigation? navigation = GetCurrentNavigation();
+        INavigation? navigation = GetCurrentPushableNavigation();
         if (navigation is null)
             throw new RouterException(RouterError.NavigationNotAvailable, component);
-
-        var modalStack = navigation.ModalStack;
-        if (modalStack is not null && modalStack.LastOrDefault() is NavigationPage modalNavPage)
-            navigation = modalNavPage.Navigation;
 
         if (component.Presenter is not Page page)
             throw new RouterException(RouterError.PresenterIsNotPage, component);
@@ -666,7 +662,7 @@ public abstract class AbstractRouter : Router
         ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("BeforePushAsync", component, presentationKind, page, navigation);
         await MainThread.InvokeOnMainThreadAsync(async () => await navigation.PushAsync(page));
-        ComponentMountRegistry.Track(component, page);
+        ComponentMountRegistry.Track(component, new RouterComponentMount<Page, INavigation>(page, navigation));
         ApplyComponentSafeAreaPolicy(component, presentationKind, page);
         ApplyComponentChrome("AfterPushAsync", component, presentationKind, page, navigation);
     }
@@ -861,24 +857,22 @@ public abstract class AbstractRouter : Router
     {
         EnsureApplication(component);
 
-        INavigation? navigation = GetCurrentNavigation();
-        if (navigation is null)
-            throw new RouterException(RouterError.NavigationNotAvailable, component);
+        if (!TryResolvePushableMount(component, out var targetComponent, out var mount, out var navigationNotAvailable))
+        {
+            if (navigationNotAvailable)
+                throw new RouterException(RouterError.NavigationNotAvailable, component);
 
-        // If a modal NavigationPage is open, push into that navigation stack.
-        var modalStack = navigation.ModalStack;
-        if (modalStack.Any() && modalStack.Last() is NavigationPage modalNavPage)
-            navigation = modalNavPage.Navigation;
+            throw new RouterException(RouterError.PresenterIsNotOnTopNavigationStack, component);
+        }
 
+        var navigation = mount.Owner;
+        var page = mount.Mount;
         var stack = navigation.NavigationStack;
         if (!stack.Any())
             throw new RouterException(RouterError.EmptyNavigationStack, component);
 
-        if (!TryResolvePushablePage(component, out var targetComponent, out var page) ||
-            !stack.Contains(page))
-        {
+        if (!stack.Contains(page))
             throw new RouterException(RouterError.PresenterIsNotOnTopNavigationStack, component);
-        }
 
         if (stack.Last() == page)
         {
@@ -894,21 +888,49 @@ public abstract class AbstractRouter : Router
         FinalizeComponent(targetComponent);
     }
 
-    private bool TryResolvePushablePage(Component component, out Component targetComponent, out Page page)
+    private bool TryResolvePushableMount(
+        Component component,
+        out Component targetComponent,
+        out RouterComponentMount<Page, INavigation> mount,
+        out bool navigationNotAvailable)
     {
-        if (ComponentMountRegistry.TryResolve(component, out targetComponent, out page))
+        navigationNotAvailable = false;
+
+        if (ComponentMountRegistry.TryResolve(component, out targetComponent, out mount))
             return true;
 
         if (component.Presenter is Page presenterPage)
         {
+            var navigation = GetCurrentPushableNavigation();
+            if (navigation is null)
+            {
+                navigationNotAvailable = true;
+                targetComponent = null!;
+                mount = null!;
+                return false;
+            }
+
             targetComponent = component;
-            page = presenterPage;
+            mount = new RouterComponentMount<Page, INavigation>(presenterPage, navigation);
             return true;
         }
 
         targetComponent = null!;
-        page = null!;
+        mount = null!;
         return false;
+    }
+
+    private INavigation? GetCurrentPushableNavigation()
+    {
+        var navigation = GetCurrentNavigation();
+        if (navigation is null)
+            return null;
+
+        var modalStack = navigation.ModalStack;
+        if (modalStack is not null && modalStack.LastOrDefault() is NavigationPage modalNavPage)
+            navigation = modalNavPage.Navigation;
+
+        return navigation;
     }
 
     private void FinalizeComponent(Component component)
