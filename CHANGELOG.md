@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.0.1] - 2026-07-01
+
+### Fixed
+
+- Added support for removing non-top pushable pages through `DismissComponent(...)`.
+- Pushable pages that are no longer foreground are removed with `INavigation.RemovePage(page)` and are always removed without animation.
+- The router now keeps an internal pushable mount context so a page can still be removed after the component has completed and disposed its presenter.
+- The pushable mount context now stores the historical owner `INavigation` used for `PushAsync(page)`.
+- `DismissComponent(...)` uses that owner navigation instead of the current foreground navigation, fixing nested root/modal navigation flows where a pushable page belongs to a previous modal navigation while a newer modal is foreground.
+
+### Compatibility
+
+- Patch release focused on more robust pushable page handling in nested navigation stacks.
+- No public API changes.
+- Modal components remain top-only.
+- Overlay components are still not handled by `DismissComponent(...)`.
+
 ## [5.0.0] - 2026-06-27
 
 ### Added

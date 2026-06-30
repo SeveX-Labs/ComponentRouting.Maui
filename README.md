@@ -41,7 +41,7 @@ Starting from version 4.0.0, setup is unified under `MauiAppBuilder`. Call `UseC
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 5.0.0
+dotnet add package ComponentRouting.Maui --version 5.0.1
 ```
 
 ## Breaking Changes In 4.0.0
@@ -127,6 +127,14 @@ What remains app-side:
 Manual `Router.BeginNewRuntime()` usually is not needed when the root flow starts from `Window.Created`, because the window helper opens the runtime first. Advanced apps that start or present root flows inside `CreateWindow`, before `Window.Created` is guaranteed, can keep an explicit `Router.BeginNewRuntime()` there. The call is idempotent and is a no-op when the runtime is already active.
 
 ComponentRouting.Maui does not shut down the router on background, stopped, or sleep events. Background is not teardown; if your app needs sleep/resume behavior, keep that handling in the app. On iOS, `Window.Destroying` remains the MAUI teardown point for a window.
+
+## Non-Top Pushable Removal
+
+`Router.DismissComponent<TComponent, TState, TResult>(animated)` can remove pushable pages even when the page is no longer top or foreground. If the pushable page is top in its owner navigation stack, the router keeps the normal `PopAsync(animated)` behavior. If the page is still in the stack but is not top, the router removes it with `INavigation.RemovePage(page)` and treats the removal as non-animated.
+
+The router keeps the mount context for each pushable page, including the historical owner `INavigation` used for `PushAsync(page)`. This matters for flows that push pages inside a modal `NavigationPage`, then present another modal on top: dismissing the older pushable uses the navigation that owns it, not the current foreground modal navigation.
+
+Modal components remain top-only. Overlay components are not dismissed through `DismissComponent(...)`; use the overlay APIs for overlays.
 
 ## Platform Chrome And Fullscreen Modals
 
@@ -627,7 +635,7 @@ mv Directory.Build.local.props.disabled Directory.Build.local.props
 To inspect the generated package contents:
 
 ```bash
-unzip -l ./local-nuget/ComponentRouting.Maui.5.0.0.nupkg | grep "lib/"
+unzip -l ./local-nuget/ComponentRouting.Maui.5.0.1.nupkg | grep "lib/"
 ```
 
 With .NET MAUI/.NET 10, it is normal for the generated `.nupkg` to contain platform-normalized asset folders such as:
