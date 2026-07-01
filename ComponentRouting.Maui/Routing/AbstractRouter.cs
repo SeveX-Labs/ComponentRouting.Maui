@@ -943,14 +943,14 @@ public abstract class AbstractRouter : Router
             return false;
         }
 
-        ApplySnackbarDefaultLayout(component);
+        SnackbarLayoutApplier.ApplyDefaultLayout(component);
 
         var surfaceMount = TryMountOverlaySurface(surfaceHost, layout);
         if (surfaceMount is null)
         {
             return false;
         }
-        ApplySnackbarPlatformSafeArea(component, surfaceMount.SurfaceHost);
+        SnackbarLayoutApplier.ApplyPlatformSafeArea(component, surfaceMount.SurfaceHost, SafeAreaInsetsService);
 
         OverlaySurfaceOwnership.Set(component, ownerSurfaceKind, component is SnackbarComponent ? "SnackbarPresented" : "OverlayPresented");
         if (component is SnackbarComponent)
@@ -970,104 +970,6 @@ public abstract class AbstractRouter : Router
 
         return true;
     }
-
-    private void ApplySnackbarDefaultLayout(Component component)
-    {
-        if (component is not SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter })
-            return;
-
-        snackbarPresenter.HorizontalOptions = LayoutOptions.Fill;
-        snackbarPresenter.VerticalOptions = LayoutOptions.Fill;
-
-        foreach (var child in snackbarPresenter.Children)
-        {
-            if (child is not View childView)
-                continue;
-
-            var flags = AbsoluteLayout.GetLayoutFlags(childView);
-            var bounds = AbsoluteLayout.GetLayoutBounds(childView);
-
-            if (flags != AbsoluteLayoutFlags.None ||
-                bounds.Width != AbsoluteLayout.AutoSize ||
-                bounds.Height != AbsoluteLayout.AutoSize)
-            {
-                continue;
-            }
-
-            AbsoluteLayout.SetLayoutFlags(
-                childView,
-                AbsoluteLayoutFlags.WidthProportional);
-            AbsoluteLayout.SetLayoutBounds(
-                childView,
-                new Rect(0, 0, 1, AbsoluteLayout.AutoSize));
-            childView.HorizontalOptions = LayoutOptions.Fill;
-            childView.VerticalOptions = LayoutOptions.Start;
-        }
-    }
-
-    private void ApplySnackbarPlatformSafeArea(Component component, OverlaySurfaceHost surfaceHost)
-    {
-        if (component is not SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter })
-            return;
-
-        var topInset = GetSnackbarTopInset(surfaceHost);
-        if (topInset <= 0)
-        {
-            return;
-        }
-
-        foreach (var child in snackbarPresenter.Children)
-        {
-            if (child is not View childView)
-                continue;
-
-            var flags = AbsoluteLayout.GetLayoutFlags(childView);
-            var bounds = AbsoluteLayout.GetLayoutBounds(childView);
-            if (!flags.HasFlag(AbsoluteLayoutFlags.WidthProportional) ||
-                bounds.Y != 0 ||
-                bounds.Height != AbsoluteLayout.AutoSize)
-            {
-                continue;
-            }
-
-            var margin = childView.Margin;
-            childView.Margin = new Thickness(
-                margin.Left,
-                Math.Max(margin.Top, topInset),
-                margin.Right,
-                margin.Bottom);
-            snackbarPresenter.InvalidateMeasure();
-        }
-    }
-
-    private double GetSnackbarTopInset(OverlaySurfaceHost surfaceHost)
-    {
-        if (!surfaceHost.IsPlatformHost)
-            return 0;
-
-        var configuredTopInset = SafeAreaInsetsService.GetSafeAreaInsets(true).Top;
-#if ANDROID
-        return Math.Max(configuredTopInset, GetAndroidStatusBarInset());
-#else
-        return configuredTopInset;
-#endif
-    }
-
-#if ANDROID
-    private static double GetAndroidStatusBarInset()
-    {
-        var activity = Platform.CurrentActivity;
-        var density = DeviceDisplay.MainDisplayInfo.Density;
-        if (density <= 0)
-            density = 1;
-
-        var resourceId = activity?.Resources?.GetIdentifier("status_bar_height", "dimen", "android") ?? 0;
-        if (resourceId > 0 && activity?.Resources is { } resources)
-            return resources.GetDimensionPixelSize(resourceId) / density;
-
-        return 0;
-    }
-#endif
 
     private OverlaySurfaceMount? TryMountOverlaySurface(OverlaySurfaceHost surfaceHost, Layout layout)
     {
