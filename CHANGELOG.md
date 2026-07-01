@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.0.2] - 2026-07-01
+
+### Fixed
+
+- Router root reset and runtime shutdown now fully reset the internal pushable mount registry, including the finalized-component tracking set, by using `Clear()` instead of `ClearMounts()` in the full-reset paths. This prevents the finalization guard from retaining strong component references across resets.
+
+### Changed
+
+- Low-risk internal cleanup of `AbstractRouter`: removed dead code and stale comments.
+- Extracted modal chrome DEBUG diagnostics into a dedicated `ModalChromeDiagnostics` helper.
+- Extracted snackbar layout and safe-area logic into a dedicated `SnackbarLayoutApplier` helper.
+- Added a soft, `Debug`-only diagnostic when `PresentComponent(...)` is called for a component instance that is already tracked with a pending presentation, to help detect re-presenting a pushable before completing its previous presentation.
+
+### Documentation
+
+- Documented the `PushableComponent` dismissal contract: `DismissComponent(...)` on a top pushable is a visual dismissal, and the logical result is completed separately with `CompletionSource?.TrySetResult(...)`.
+- Clarified that both orderings are supported: `TrySetResult(...)` then `DismissComponent(...)`, and `DismissComponent(...)` then `TrySetResult(...)`.
+- Documented that the same pushable should not be presented again before its previous presentation is completed, and that `ModalPageComponent` keeps a different, intentional semantic where completing the result also performs the modal's visual dismissal.
+
+### Compatibility
+
+- Patch release focused on cleanup, diagnostics, and robustness.
+- No intentional breaking changes.
+- `DismissComponent(...)` semantics are unchanged; modal and overlay behavior is unchanged.
+- No significant new public API; only internal and test-support members were added (used by the new diagnostic and unit tests).
+
 ## [5.0.1] - 2026-07-01
 
 ### Fixed
