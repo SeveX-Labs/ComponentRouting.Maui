@@ -50,7 +50,6 @@ public abstract class AbstractRouter : Router
     private readonly object shutdownGate = new();
     private int shutdownGeneration = -1;
     private Task? shutdownTask;
-    // private List<ComponentHistoryItem> Panels { get; set; }
 
     #endregion
 
@@ -87,7 +86,6 @@ public abstract class AbstractRouter : Router
         RuntimeComponentRegistry = new RouterRuntimeComponentRegistry();
         ComponentMountRegistry = new RouterComponentMountRegistry<RouterComponentMount<Page, INavigation>>();
         PageTreeShutdownService = new MauiPageTreeShutdownService();
-        // Panels = new List<ComponentHistoryItem>();
     }
 
     #endregion
@@ -260,9 +258,6 @@ public abstract class AbstractRouter : Router
             foreach (var popup in History.ClearPopups())
                 popup.Unpresent();
         }
-
-        // if (Panels.Any()) _ = Panels.Select(p => { p.Component.Unpresent(); return p; }).ToList();
-        // Panels = new List<ComponentHistoryItem>();
 
         if (ComponentsStack.Any())
         {
@@ -1010,17 +1005,6 @@ public abstract class AbstractRouter : Router
             return false;
         }
 
-        // Android 11+ can report top insets that affect snackbar placement.
-        /*
-        if (component is SnackbarComponent { Presenter: SnackbarPresenter snackbarPresenter }
-            && DeviceInfo.Platform == DevicePlatform.Android
-            && DeviceInfo.Version.Major >= 11)
-        {
-            var insets = SafeAreaInsetsService.GetSafeAreaInsets();
-            if (insets.Top > 0) snackbarPresenter.TranslationY = insets.Top;
-        }
-        */
-
         ApplySnackbarDefaultLayout(component);
 
         var surfaceMount = TryMountOverlaySurface(surfaceHost, layout);
@@ -1236,39 +1220,6 @@ public abstract class AbstractRouter : Router
     private bool HasActiveNativeModal()
     {
         return GetCurrentNavigation(useGlobalNavigation: true)?.ModalStack.Any() == true;
-    }
-
-    private bool TryFindOverlayContainer(out Component parentComponent, out AbsoluteLayout containerLayout)
-    {
-        if (TryGetOverlayContainer(History.Popups.LastOrDefault()?.Component, out parentComponent, out containerLayout))
-            return true;
-
-        if (TryGetOverlayContainer(ComponentsStack.LastOrDefault(), out parentComponent, out containerLayout))
-            return true;
-
-        if (TryGetOverlayContainer(MountedComponent, out parentComponent, out containerLayout))
-            return true;
-
-        parentComponent = null!;
-        containerLayout = null!;
-        return false;
-    }
-
-    private static bool TryGetOverlayContainer(
-        Component? component,
-        out Component parentComponent,
-        out AbsoluteLayout containerLayout)
-    {
-        if (component?.Presenter is OverlayHost { OverlayContainer: not null } overlayHost)
-        {
-            parentComponent = component;
-            containerLayout = overlayHost.OverlayContainer;
-            return true;
-        }
-
-        parentComponent = null!;
-        containerLayout = null!;
-        return false;
     }
 
     private void DismissOverlayComponent(Component component)
