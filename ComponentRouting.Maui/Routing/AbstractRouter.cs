@@ -287,6 +287,23 @@ public abstract class AbstractRouter : Router
         return Task.CompletedTask;
     }
 
+    public virtual Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null)
+    {
+        // Live (in-process) reset for signout / account switch: the Window stays alive and the
+        // router must be immediately ready to present a new root/login.
+        //
+        // Reuses UnpresentRootComponent() so the singleton (non-overlay) components are BOTH
+        // Unpresent()-ed (which completes their pending presentation) AND untracked. Skipping that
+        // would leave IsTracked && HasPendingPresentation == true, so the next presentation of the
+        // same singleton root/login would throw ComponentAlreadyPresented.
+        //
+        // Intentionally does NOT: call RuntimeLifecycle.BeginShutdown(), set IsShuttingDown, require
+        // BeginNewRuntime() afterward, or disconnect the MAUI page tree.
+        //
+        // options.Reason is currently informational (reserved for future reset-aware hooks / telemetry).
+        return UnpresentRootComponent();
+    }
+
     public virtual Task ShutdownAsync(
         RouterShutdownOptions? options = null,
         CancellationToken cancellationToken = default)

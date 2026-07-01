@@ -169,6 +169,14 @@ public sealed class TestRouter : Router
         shutdownTask = null;
     }
 
+    public Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null)
+    {
+        // Mirrors AbstractRouter.ResetRuntimeAsync: a live reset clears tracked/pending
+        // components and never touches the runtime lifecycle (no BeginShutdown / IsShuttingDown).
+        runtimeComponentRegistry.DisposeTrackedComponents();
+        return Task.CompletedTask;
+    }
+
     public bool OnDeviceBackPressed() => false;
 
     private async Task ShutdownInternalAsync(RouterShutdownContext context)

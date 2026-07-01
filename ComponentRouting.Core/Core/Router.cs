@@ -39,5 +39,13 @@ public interface Router
 
     void BeginNewRuntime();
 
+    /// <summary>
+    /// Live (in-process) reset of the router runtime for scenarios such as signout / account switch,
+    /// where the Window stays alive and a new root/login must be presented immediately afterward.
+    /// Unlike <see cref="ShutdownAsync"/> it does not enter the shutting-down lifecycle state,
+    /// does not disconnect the MAUI page tree, and does not require <see cref="BeginNewRuntime"/> after it.
+    /// </summary>
+    Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null);
+
     bool OnDeviceBackPressed();
 }

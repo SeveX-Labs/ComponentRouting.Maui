@@ -17,6 +17,8 @@ using ComponentRouting.Maui.Service.Core;
 [assembly: TypeForwardedTo(typeof(RoutableComponent<,>))]
 [assembly: TypeForwardedTo(typeof(Router))]
 [assembly: TypeForwardedTo(typeof(RouterRuntimeLifecycle))]
+[assembly: TypeForwardedTo(typeof(RouterRuntimeResetOptions))]
+[assembly: TypeForwardedTo(typeof(RouterRuntimeResetReason))]
 [assembly: TypeForwardedTo(typeof(RouterShutdownContext))]
 [assembly: TypeForwardedTo(typeof(RouterShutdownOptions))]
 [assembly: TypeForwardedTo(typeof(RouterShutdownReason))]
