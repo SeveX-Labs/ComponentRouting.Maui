@@ -95,6 +95,22 @@ public class RouterComponentMountRegistryTests
         Assert.False(registry.TryBeginFinalize(component));
     }
 
+    [Fact]
+    public void Clear_resets_finalize_state()
+    {
+        var registry = new RouterComponentMountRegistry<object>();
+        var component = new TestComponent();
+        var mount = new object();
+
+        registry.Track(component, mount);
+        Assert.True(registry.TryBeginFinalize(component));
+
+        registry.Clear();
+
+        Assert.False(registry.TryResolve(component, out _, out _));
+        Assert.True(registry.TryBeginFinalize(component));
+    }
+
     private sealed class TransientLookupComponent : TestComponent
     {
     }

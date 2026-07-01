@@ -266,7 +266,7 @@ public abstract class AbstractRouter : Router
                 component.Unpresent();
         }
         ComponentsStack = new List<Component>();
-        ComponentMountRegistry.ClearMounts();
+        ComponentMountRegistry.Clear();
 
         CurrentTabComponent?.Unpresent();
         CurrentFlyoutComponent?.Unpresent();
@@ -336,7 +336,7 @@ public abstract class AbstractRouter : Router
         finally
         {
             RuntimeComponentRegistry.DisposeTrackedComponents();
-            ComponentMountRegistry.ClearMounts();
+            ComponentMountRegistry.Clear();
         }
     }
 
