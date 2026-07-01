@@ -250,6 +250,16 @@ public abstract class AbstractRouter : Router
 
     public virtual Task UnpresentRootComponent()
     {
+        // Public sync-style API: the root teardown touches MAUI (component.Unpresent() and the tracked
+        // Dispose() can reach the visual tree), so run it on the main thread. When called from a
+        // background thread, block until it completes so the caller observes a finished unpresent (no
+        // fire-and-forget); when already on the main thread, run inline.
+        RunOnMainThread(UnpresentRootComponentCore);
+        return Task.CompletedTask;
+    }
+
+    private void UnpresentRootComponentCore()
+    {
         WarnIfWindowLifecycleWasNotAttached();
 
         if (History.Snackbars.Any())
@@ -283,8 +293,6 @@ public abstract class AbstractRouter : Router
         OverlaySurfaceOwnership.Clear("UnpresentRootComponent");
 
         RuntimeComponentRegistry.DisposeTrackedComponents();
-
-        return Task.CompletedTask;
     }
 
     public virtual Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null)
@@ -292,16 +300,19 @@ public abstract class AbstractRouter : Router
         // Live (in-process) reset for signout / account switch: the Window stays alive and the
         // router must be immediately ready to present a new root/login.
         //
-        // Reuses UnpresentRootComponent() so the singleton (non-overlay) components are BOTH
-        // Unpresent()-ed (which completes their pending presentation) AND untracked. Skipping that
-        // would leave IsTracked && HasPendingPresentation == true, so the next presentation of the
-        // same singleton root/login would throw ComponentAlreadyPresented.
+        // Reuses the UnpresentRootComponent teardown so the singleton (non-overlay) components are
+        // BOTH Unpresent()-ed (which completes their pending presentation) AND untracked. Skipping
+        // that would leave IsTracked && HasPendingPresentation == true, so the next presentation of
+        // the same singleton root/login would throw ComponentAlreadyPresented.
         //
         // Intentionally does NOT: call RuntimeLifecycle.BeginShutdown(), set IsShuttingDown, require
         // BeginNewRuntime() afterward, or disconnect the MAUI page tree.
         //
+        // Async main-thread marshalling: runs the teardown inline when already on the main thread,
+        // otherwise dispatches to it without blocking.
+        //
         // options.Reason is currently informational (reserved for future reset-aware hooks / telemetry).
-        return UnpresentRootComponent();
+        return MainThread.InvokeOnMainThreadAsync(UnpresentRootComponentCore);
     }
 
     public virtual Task ShutdownAsync(
@@ -362,24 +373,48 @@ public abstract class AbstractRouter : Router
         var notifiedPresenters = new HashSet<IRouterShutdownAwarePresenter>(
             ReferenceEqualityComparer<IRouterShutdownAwarePresenter>.Instance);
 
+        // Every MAUI-bound section runs on the main thread even if ShutdownAsync was called from a
+        // background thread. The generation guard is re-checked inside the main-thread sections so it
+        // is serialized with BeginNewRuntime() (also main-thread): a runtime reopened while this
+        // shutdown was suspended in the hooks is never disconnected/disposed/cleared (B4 preserved).
         try
         {
-            await RuntimeComponentRegistry.InvokeShutdownHooksAsync(context, notifiedPresenters);
+            // Shutdown-aware component/presenter hooks may touch MAUI UI.
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+                await RuntimeComponentRegistry.InvokeShutdownHooksAsync(context, notifiedPresenters));
 
-            // If BeginNewRuntime() reopened the runtime while this shutdown was suspended in the
-            // hooks, the lifecycle generation no longer matches this shutdown. Skip every destructive
-            // cleanup so this stale shutdown never disconnects/disposes/clears the new runtime.
-            if (options.DisconnectMauiPageTree && RuntimeLifecycle.Generation == context.Generation)
-                await PageTreeShutdownService.DisconnectCurrentApplicationPageTreesAsync(context, notifiedPresenters);
+            if (options.DisconnectMauiPageTree)
+            {
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (RuntimeLifecycle.Generation == context.Generation)
+                        await PageTreeShutdownService.DisconnectCurrentApplicationPageTreesAsync(context, notifiedPresenters);
+                });
+            }
         }
         finally
         {
-            if (RuntimeLifecycle.Generation == context.Generation)
+            // component.Dispose() can touch the visual tree; dispose/clear on the main thread.
+            await MainThread.InvokeOnMainThreadAsync(() =>
             {
+                if (RuntimeLifecycle.Generation != context.Generation)
+                    return;
+
                 RuntimeComponentRegistry.DisposeTrackedComponents();
                 ComponentMountRegistry.Clear();
-            }
+            });
         }
+    }
+
+    private static void RunOnMainThread(Action action)
+    {
+        // MainThread.InvokeOnMainThreadAsync already runs inline when on the main thread; the explicit
+        // check keeps the on-main-thread path fully synchronous (no Task, no blocking) and blocks only
+        // when marshalling from a background thread, so a sync caller observes completion.
+        if (MainThread.IsMainThread)
+            action();
+        else
+            MainThread.InvokeOnMainThreadAsync(action).GetAwaiter().GetResult();
     }
 
     public virtual Task UnpresentComponentStack()
