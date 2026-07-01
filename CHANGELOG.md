@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.2.1] - 2026-07-02
+
+### Fixed
+
+- Prevented a stale asynchronous shutdown from running its destructive cleanup against a runtime that was already reopened by `BeginNewRuntime()` after window/activity recreation. `ShutdownInternalAsync(...)` now uses a generation guard, and `BeginNewRuntime()` cleans the previous runtime's registry-level state on reopen.
+- Marshaled the MAUI-bound teardown to the main thread when invoked from a background thread: live reset (`ResetRuntimeAsync(...)`), root unpresent (`UnpresentRootComponent()`), shutdown-aware hooks, MAUI page-tree disconnect, and tracked component disposal.
+
+### Internal
+
+- Hardened `RouterRuntimeComponentRegistry` and `RouterComponentMountRegistry` with minimal internal locking for concurrent shutdown/restart paths.
+
+### Compatibility
+
+- Patch release with internal robustness fixes only.
+- No public API changes and no intentional behavior changes.
+- `BeginNewRuntime()`, `ShutdownAsync(...)`, `ResetRuntimeAsync(...)`, and the window/activity lifecycle paths keep their existing semantics.
+
 ## [5.2.0] - 2026-07-02
 
 ### Added
