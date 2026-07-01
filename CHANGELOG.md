@@ -1,5 +1,24 @@
 # Changelog
 
+## [5.2.0] - 2026-07-02
+
+### Added
+
+- Added `Router.ResetRuntimeAsync(...)` for live runtime resets such as signout, account switching, and authentication-expired flows, where the `Window` stays alive and a new root/login must be presented immediately.
+- Added `RouterRuntimeResetOptions` and `RouterRuntimeResetReason`.
+
+### Documentation
+
+- Clarified the difference between final app/window shutdown (`ShutdownAsync(...)`) and live runtime reset (`ResetRuntimeAsync(...)`).
+- Documented that signout/live reset should use `ResetRuntimeAsync(...)` instead of `ShutdownAsync(... DisconnectMauiPageTree = false)` followed by `BeginNewRuntime()`.
+
+### Compatibility
+
+- Minor release adding a new additive API. No public API was removed and no behavior changed.
+- `ResetRuntimeAsync(...)` reuses the existing `UnpresentRootComponent()` teardown; it does not enter the shutting-down lifecycle, does not set `IsShuttingDown = true`, does not disconnect the MAUI page tree, and does not require `BeginNewRuntime()` afterward.
+- Consumers that subclass `AbstractRouter` inherit `ResetRuntimeAsync(...)` and need no changes; types that implement the `Router` interface directly must add the new member.
+- `ShutdownAsync(...)`, `BeginNewRuntime()`, and the `Window.Destroying` / Android `Activity.OnDestroy` shutdown paths are unchanged.
+
 ## [5.1.0] - 2026-07-01
 
 ### Added

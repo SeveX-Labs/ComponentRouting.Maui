@@ -128,6 +128,35 @@ Manual `Router.BeginNewRuntime()` usually is not needed when the root flow start
 
 ComponentRouting.Maui does not shut down the router on background, stopped, or sleep events. Background is not teardown; if your app needs sleep/resume behavior, keep that handling in the app. On iOS, `Window.Destroying` remains the MAUI teardown point for a window.
 
+### Shutdown vs live reset
+
+`ShutdownAsync(...)` and `ResetRuntimeAsync(...)` cover two different situations:
+
+- **`ShutdownAsync(...)` — the Window/App is really terminating** (`Window.Destroying`, Android `Activity.OnDestroy`, definitive app/window teardown). It enters the shutting-down lifecycle and blocks new navigation, can call shutdown-aware hooks, and can disconnect the MAUI page tree. It is not meant for signout. After a real shutdown the runtime is reopened by `BeginNewRuntime()` (the window/activity lifecycle helpers do this on `Window.Created` / `Activity.OnCreate`).
+- **`ResetRuntimeAsync(...)` — a live, in-process reset while the `Window` stays alive** (signout/logout, account switch, authentication-expired, restarting the root flow). This is the correct API for those flows.
+
+`ResetRuntimeAsync(...)`:
+
+- closes/clears overlays, popups, and snackbars;
+- unpresents root/tab/flyout and the mounted component stack through the `UnpresentRootComponent()` teardown;
+- clears the component stack, mount registry, surface ownership, and disposes/untracks tracked/pending components;
+- leaves the router ready to present a new root/login immediately;
+- does not call `BeginShutdown()`, does not set `IsShuttingDown = true`, and does not disconnect the MAUI page tree;
+- does not require a `BeginNewRuntime()` call afterward;
+- never uses `window.Page = null` or `new ContentPage()`.
+
+Do not use `ShutdownAsync(new RouterShutdownOptions { DisconnectMauiPageTree = false })` followed by `BeginNewRuntime()` for signout: that path briefly marks the runtime as shutting down and is semantically a teardown, not a live reset. Use `ResetRuntimeAsync(...)` instead.
+
+```csharp
+await router.ResetRuntimeAsync(new RouterRuntimeResetOptions
+{
+    Reason = RouterRuntimeResetReason.Signout
+});
+
+// The router is ready to present the login/root flow again.
+// No BeginNewRuntime() call is required.
+```
+
 ## Non-Top Pushable Removal
 
 `Router.DismissComponent<TComponent, TState, TResult>(animated)` can remove pushable pages even when the page is no longer top or foreground. If the pushable page is top in its owner navigation stack, the router keeps the normal `PopAsync(animated)` behavior. If the page is still in the stack but is not top, the router removes it with `INavigation.RemovePage(page)` and treats the removal as non-animated.
