@@ -41,7 +41,7 @@ Starting from version 4.0.0, setup is unified under `MauiAppBuilder`. Call `UseC
 Install the package from NuGet:
 
 ```bash
-dotnet add package ComponentRouting.Maui --version 5.0.2
+dotnet add package ComponentRouting.Maui --version 5.1.0
 ```
 
 ## Breaking Changes In 4.0.0
@@ -158,8 +158,8 @@ CompletionSource?.TrySetResult(result);
 Because the two steps are decoupled, dismissing a top pushable without completing the result leaves the corresponding `PresentComponent<...>(...)` task pending by design. Guidelines:
 
 - Always complete the result with `CompletionSource?.TrySetResult(...)` when the flow ends, before or after `DismissComponent(...)`.
-- Do not re-present the same pushable before completing its previous presentation; otherwise the previous result task is orphaned and the presenter is reused in an undefined state.
-- A pending, never-completed pushable is disposed by router runtime shutdown (app kill, window destroy, `Router.ShutdownAsync(...)`). Do not rely on a partial root reset such as `Router.UnpresentRootComponent()` to dispose it: that path clears the visual stack, mounts, and overlays but does not dispose components that were already dismissed and left uncompleted.
+- Do not re-present the same component before completing its previous presentation. Since 5.1.0 the router blocks this with `RouterException(RouterError.ComponentAlreadyPresented)`; complete the result first, then present it again. A `Preload -> Present` sequence stays valid because a preloaded component has no pending presentation.
+- A pending, never-completed pushable is disposed by router runtime shutdown (app kill, window destroy, `Router.ShutdownAsync(...)`). Since 5.1.0, `Router.UnpresentRootComponent()` also disposes and untracks any still-tracked components as a final cleanup step, so a full root reset (signout/live reset) no longer leaves dismissed-but-uncompleted components behind.
 
 `ModalPageComponent` uses a different, intentional semantic: completing the result also performs the modal's visual dismissal, and modals remain top-only. This difference between pushables and modals is intentional for now.
 
@@ -662,7 +662,7 @@ mv Directory.Build.local.props.disabled Directory.Build.local.props
 To inspect the generated package contents:
 
 ```bash
-unzip -l ./local-nuget/ComponentRouting.Maui.5.0.2.nupkg | grep "lib/"
+unzip -l ./local-nuget/ComponentRouting.Maui.5.1.0.nupkg | grep "lib/"
 ```
 
 With .NET MAUI/.NET 10, it is normal for the generated `.nupkg` to contain platform-normalized asset folders such as:

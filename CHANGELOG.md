@@ -1,5 +1,28 @@
 # Changelog
 
+## [5.1.0] - 2026-07-01
+
+### Added
+
+- Added `RouterError.ComponentAlreadyPresented`.
+- Added a runtime guard in `PresentComponent(...)` that blocks presenting the same singleton component while it already has an active or pending presentation. The guard fires when the component is already tracked and `HasPendingPresentation == true`.
+- The guard prevents double presentation of the same singleton, reuse of the same presenter/page, `CompletionSource` overwrite, orphaned result tasks, and raw MAUI crashes from `PushAsync`/`PushModalAsync` of a page that is already in the stack.
+
+### Changed
+
+- `UnpresentRootComponent()` now also disposes and untracks any still-tracked or pending components through `RuntimeComponentRegistry.DisposeTrackedComponents()` as a final mop-up step.
+- This makes root reset/signout consistent with a full application-context reset and prevents the new guard from reporting stale, already-dismissed components after a reset.
+- The soft, DEBUG-only diagnostic for already-tracked/pending components introduced in 5.0.2 was replaced by the runtime guard.
+
+### Compatibility
+
+- This is a minor release for an intentional runtime fail-fast, not a patch release.
+- Public API signatures are unchanged; only a new `RouterError` enum value was added.
+- `DismissComponent(...)` semantics are unchanged.
+- For `PushableComponent`, `DismissComponent(...)` on a top pushable remains a visual dismissal; the result must be completed by the component or consumer with `CompletionSource?.TrySetResult(...)`.
+- Both orderings remain supported: `TrySetResult(...)` then `DismissComponent(...)`, and `DismissComponent(...)` then `TrySetResult(...)`.
+- Modal and overlay semantics are unchanged; non-top pushable removal and owner navigation mount mapping are unchanged.
+
 ## [5.0.2] - 2026-07-01
 
 ### Fixed
