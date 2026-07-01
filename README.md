@@ -136,6 +136,33 @@ The router keeps the mount context for each pushable page, including the histori
 
 Modal components remain top-only. Overlay components are not dismissed through `DismissComponent(...)`; use the overlay APIs for overlays.
 
+## Pushable Dismissal And Result Completion
+
+For `PushableComponent`, completing the result and dismissing the page visually are intentionally two separate steps:
+
+- `CompletionSource?.TrySetResult(result)` completes the logical result and resumes the awaiting `Router.PresentComponent<...>(...)` call.
+- `Router.DismissComponent<...>(animated)` removes the page visually. For a top pushable this is only the visual `PopAsync(animated)`; it does not complete the result on its own.
+
+For a top pushable, both orderings are supported and equivalent:
+
+```csharp
+CompletionSource?.TrySetResult(result);
+await Router.DismissComponent<MyComponent, MyState, MyResult>(animated);
+```
+
+```csharp
+await Router.DismissComponent<MyComponent, MyState, MyResult>(animated);
+CompletionSource?.TrySetResult(result);
+```
+
+Because the two steps are decoupled, dismissing a top pushable without completing the result leaves the corresponding `PresentComponent<...>(...)` task pending by design. Guidelines:
+
+- Always complete the result with `CompletionSource?.TrySetResult(...)` when the flow ends, before or after `DismissComponent(...)`.
+- Do not re-present the same pushable before completing its previous presentation; otherwise the previous result task is orphaned and the presenter is reused in an undefined state.
+- A pending, never-completed pushable is disposed by router runtime shutdown (app kill, window destroy, `Router.ShutdownAsync(...)`). Do not rely on a partial root reset such as `Router.UnpresentRootComponent()` to dispose it: that path clears the visual stack, mounts, and overlays but does not dispose components that were already dismissed and left uncompleted.
+
+`ModalPageComponent` uses a different, intentional semantic: completing the result also performs the modal's visual dismissal, and modals remain top-only. This difference between pushables and modals is intentional for now.
+
 ## Platform Chrome And Fullscreen Modals
 
 `UseComponentRoutingMaui(...)` accepts an optional `configureChrome` callback for route-scoped platform chrome defaults. The callback configures the `ComponentChromeConfiguration` registered in DI. In 4.0.0 this setup lives on `MauiAppBuilder` because ComponentRouting.Maui must register DI services and platform-specific MAUI handlers in one place.
