@@ -135,7 +135,11 @@ public abstract class AbstractRouter : Router
             throw new RouterException(RouterError.ApplicationCurrentIsNull);
 
         var component = ComponentFactory.CreateComponent<TComponent>();
-        WarnIfComponentAlreadyPending<TState, TResult>(component);
+        if (RuntimeComponentRegistry.IsTracked(component) &&
+            component is AbstractComponent<TState, TResult> { HasPendingPresentation: true })
+        {
+            throw new RouterException(RouterError.ComponentAlreadyPresented, component);
+        }
         RuntimeComponentRegistry.Track(component);
         await PrepareComponent(component, input);
 
@@ -277,6 +281,8 @@ public abstract class AbstractRouter : Router
         CurrentFlyoutComponent = null;
         MountedComponent = null;
         OverlaySurfaceOwnership.Clear("UnpresentRootComponent");
+
+        RuntimeComponentRegistry.DisposeTrackedComponents();
 
         return Task.CompletedTask;
     }
@@ -633,18 +639,6 @@ public abstract class AbstractRouter : Router
     private static void WarnIfWindowLifecycleWasNotAttached()
     {
         ComponentRoutingMauiLifecycleDiagnostics.WarnIfAutomaticPlatformLifecycleEnabledWithoutWindowLifecycle();
-    }
-
-    [Conditional("DEBUG")]
-    private void WarnIfComponentAlreadyPending<TState, TResult>(RoutableComponent<TState, TResult> component)
-    {
-        if (RuntimeComponentRegistry.IsTracked(component) &&
-            component is AbstractComponent<TState, TResult> { HasPendingPresentation: true })
-        {
-            Debug.WriteLine(
-                $"ComponentRouting.Maui: component '{component.GetType().Name}' is already tracked with a pending presentation when PresentComponent is called. " +
-                "If a pushable component was dismissed visually, complete its result with CompletionSource.TrySetResult(...) before presenting it again.");
-        }
     }
 
     private void ClosePopupComponent(Component component)

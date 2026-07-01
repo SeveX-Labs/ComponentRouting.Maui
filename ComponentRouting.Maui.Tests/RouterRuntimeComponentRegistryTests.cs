@@ -49,4 +49,34 @@ public class RouterRuntimeComponentRegistryTests
         Assert.True(registry.IsTracked(tracked));
         Assert.False(registry.IsTracked(other));
     }
+
+    [Fact]
+    public void DisposeTrackedComponents_untracks_tracked_components()
+    {
+        var registry = new RouterRuntimeComponentRegistry();
+        var component = new TestComponent();
+
+        registry.Track(component);
+        Assert.True(registry.IsTracked(component));
+
+        registry.DisposeTrackedComponents();
+
+        Assert.False(registry.IsTracked(component));
+        Assert.Equal(0, registry.Count);
+    }
+
+    [Fact]
+    public void DisposeTrackedComponents_is_idempotent()
+    {
+        var registry = new RouterRuntimeComponentRegistry();
+        var component = new TestComponent();
+
+        registry.Track(component);
+
+        registry.DisposeTrackedComponents();
+        registry.DisposeTrackedComponents();
+
+        Assert.False(registry.IsTracked(component));
+        Assert.Equal(0, registry.Count);
+    }
 }
