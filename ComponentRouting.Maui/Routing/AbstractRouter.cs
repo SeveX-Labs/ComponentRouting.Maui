@@ -331,7 +331,19 @@ public abstract class AbstractRouter : Router
 
     public virtual void BeginNewRuntime()
     {
+        var wasShuttingDown = RuntimeLifecycle.IsShuttingDown;
         RuntimeLifecycle.BeginNewRuntime();
+
+        if (wasShuttingDown)
+        {
+            // The runtime was reopened after a shutdown (e.g. Window.Created / Activity.OnCreate).
+            // Clean the stale runtime-level state left by the previous generation so the new runtime
+            // starts coherent and the next presentation of the same singleton root/login is not
+            // blocked by ComponentAlreadyPresented. Registry-level only: no visual tree / navigation
+            // is touched (a suspended shutdown may reference pages/navigation already destroyed).
+            RuntimeComponentRegistry.DisposeTrackedComponents();
+            ComponentMountRegistry.Clear();
+        }
 
         lock (shutdownGate)
         {
@@ -354,13 +366,19 @@ public abstract class AbstractRouter : Router
         {
             await RuntimeComponentRegistry.InvokeShutdownHooksAsync(context, notifiedPresenters);
 
-            if (options.DisconnectMauiPageTree)
+            // If BeginNewRuntime() reopened the runtime while this shutdown was suspended in the
+            // hooks, the lifecycle generation no longer matches this shutdown. Skip every destructive
+            // cleanup so this stale shutdown never disconnects/disposes/clears the new runtime.
+            if (options.DisconnectMauiPageTree && RuntimeLifecycle.Generation == context.Generation)
                 await PageTreeShutdownService.DisconnectCurrentApplicationPageTreesAsync(context, notifiedPresenters);
         }
         finally
         {
-            RuntimeComponentRegistry.DisposeTrackedComponents();
-            ComponentMountRegistry.Clear();
+            if (RuntimeLifecycle.Generation == context.Generation)
+            {
+                RuntimeComponentRegistry.DisposeTrackedComponents();
+                ComponentMountRegistry.Clear();
+            }
         }
     }
 

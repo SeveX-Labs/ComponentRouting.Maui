@@ -53,6 +53,25 @@ public sealed class HostComponent : TestComponent
 {
 }
 
+public sealed class ShutdownBlockingComponent : TestComponent, IRouterShutdownAwareComponent
+{
+    private readonly TaskCompletionSource<bool> entered =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private readonly TaskCompletionSource<bool> release =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task Entered => entered.Task;
+
+    public void Release() => release.TrySetResult(true);
+
+    public async ValueTask OnRouterShutdownAsync(RouterShutdownContext context)
+    {
+        entered.TrySetResult(true);
+        await release.Task;
+    }
+}
+
 public class GenericComponent<T> : TestComponent
 {
 }
@@ -104,6 +123,11 @@ public sealed class TestRouter : Router
     public void TrackRuntimeComponentForTest(Component component)
     {
         runtimeComponentRegistry.Track(component);
+    }
+
+    public bool IsRuntimeComponentTrackedForTest(Component component)
+    {
+        return runtimeComponentRegistry.IsTracked(component);
     }
 
     public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
@@ -160,7 +184,13 @@ public sealed class TestRouter : Router
 
     public void BeginNewRuntime()
     {
+        // Mirrors AbstractRouter.BeginNewRuntime: on reopen after shutdown, clean the stale runtime
+        // registry so old singletons are not left IsTracked && pending.
+        var wasShuttingDown = runtimeLifecycle.IsShuttingDown;
         runtimeLifecycle.BeginNewRuntime();
+
+        if (wasShuttingDown)
+            runtimeComponentRegistry.DisposeTrackedComponents();
 
         if (runtimeLifecycle.IsShuttingDown)
             return;
@@ -190,7 +220,10 @@ public sealed class TestRouter : Router
         }
         finally
         {
-            runtimeComponentRegistry.DisposeTrackedComponents();
+            // Mirrors AbstractRouter.ShutdownInternalAsync: skip the destructive cleanup if the
+            // runtime was reopened (generation changed) while this shutdown was suspended.
+            if (runtimeLifecycle.Generation == context.Generation)
+                runtimeComponentRegistry.DisposeTrackedComponents();
         }
     }
 }

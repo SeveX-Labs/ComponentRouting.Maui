@@ -6,6 +6,8 @@ namespace ComponentRouting.Maui.Routing;
 internal sealed class RouterComponentMountRegistry<TMount>
     where TMount : class
 {
+    private readonly object gate = new();
+
     private readonly Dictionary<Component, TMount> mountsByComponent =
         new(ReferenceEqualityComparer<Component>.Instance);
 
@@ -16,55 +18,72 @@ internal sealed class RouterComponentMountRegistry<TMount>
 
     public void Track(Component component, TMount mount)
     {
-        mountsByComponent[component] = mount;
-        latestComponentByType[component.GetType()] = component;
-        finalizedComponents.Remove(component);
+        lock (gate)
+        {
+            mountsByComponent[component] = mount;
+            latestComponentByType[component.GetType()] = component;
+            finalizedComponents.Remove(component);
+        }
     }
 
     public bool TryResolve(Component requestedComponent, out Component trackedComponent, out TMount mount)
     {
-        if (mountsByComponent.TryGetValue(requestedComponent, out mount!))
+        lock (gate)
         {
-            trackedComponent = requestedComponent;
-            return true;
-        }
+            if (mountsByComponent.TryGetValue(requestedComponent, out mount!))
+            {
+                trackedComponent = requestedComponent;
+                return true;
+            }
 
-        if (latestComponentByType.TryGetValue(requestedComponent.GetType(), out trackedComponent!) &&
-            mountsByComponent.TryGetValue(trackedComponent, out mount!))
-        {
-            return true;
-        }
+            if (latestComponentByType.TryGetValue(requestedComponent.GetType(), out trackedComponent!) &&
+                mountsByComponent.TryGetValue(trackedComponent, out mount!))
+            {
+                return true;
+            }
 
-        trackedComponent = null!;
-        mount = null!;
-        return false;
+            trackedComponent = null!;
+            mount = null!;
+            return false;
+        }
     }
 
     public void Remove(Component component)
     {
-        mountsByComponent.Remove(component);
-
-        if (latestComponentByType.TryGetValue(component.GetType(), out var latestComponent) &&
-            ReferenceEquals(latestComponent, component))
+        lock (gate)
         {
-            latestComponentByType.Remove(component.GetType());
+            mountsByComponent.Remove(component);
+
+            if (latestComponentByType.TryGetValue(component.GetType(), out var latestComponent) &&
+                ReferenceEquals(latestComponent, component))
+            {
+                latestComponentByType.Remove(component.GetType());
+            }
         }
     }
 
     public bool TryBeginFinalize(Component component)
     {
-        return finalizedComponents.Add(component);
+        lock (gate)
+            return finalizedComponents.Add(component);
     }
 
     public void ClearMounts()
     {
-        mountsByComponent.Clear();
-        latestComponentByType.Clear();
+        lock (gate)
+        {
+            mountsByComponent.Clear();
+            latestComponentByType.Clear();
+        }
     }
 
     public void Clear()
     {
-        ClearMounts();
-        finalizedComponents.Clear();
+        lock (gate)
+        {
+            mountsByComponent.Clear();
+            latestComponentByType.Clear();
+            finalizedComponents.Clear();
+        }
     }
 }

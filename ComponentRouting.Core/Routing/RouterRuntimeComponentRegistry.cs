@@ -8,30 +8,44 @@ namespace ComponentRouting.Maui.Routing;
 
 internal sealed class RouterRuntimeComponentRegistry
 {
+    private readonly object gate = new();
     private readonly HashSet<Component> components = new(ReferenceEqualityComparer<Component>.Instance);
 
-    public int Count => components.Count;
+    public int Count
+    {
+        get
+        {
+            lock (gate)
+                return components.Count;
+        }
+    }
 
     public void Track(Component component)
     {
-        components.Add(component);
+        lock (gate)
+            components.Add(component);
     }
 
     public void Untrack(Component component)
     {
-        components.Remove(component);
+        lock (gate)
+            components.Remove(component);
     }
 
     public bool IsTracked(Component component)
     {
-        return components.Contains(component);
+        lock (gate)
+            return components.Contains(component);
     }
 
     public Task InvokeShutdownHooksAsync(
         RouterShutdownContext context,
         ISet<IRouterShutdownAwarePresenter> notifiedPresenters)
     {
-        var componentsSnapshot = components.ToList();
+        List<Component> componentsSnapshot;
+        lock (gate)
+            componentsSnapshot = components.ToList();
+
         if (!componentsSnapshot.Any())
             return Task.CompletedTask;
 
@@ -40,17 +54,18 @@ internal sealed class RouterRuntimeComponentRegistry
 
     public void DisposeTrackedComponents()
     {
-        var componentsSnapshot = components.ToList();
-
-        try
+        // Snapshot and clear under the lock, then dispose outside the lock: component.Dispose() runs
+        // user code (and, for pushables, re-enters Untrack), so it must never be called while holding
+        // the gate.
+        List<Component> componentsSnapshot;
+        lock (gate)
         {
-            foreach (var component in componentsSnapshot)
-                DisposeComponent(component);
-        }
-        finally
-        {
+            componentsSnapshot = components.ToList();
             components.Clear();
         }
+
+        foreach (var component in componentsSnapshot)
+            DisposeComponent(component);
     }
 
     private static async Task InvokeShutdownHooksInternalAsync(

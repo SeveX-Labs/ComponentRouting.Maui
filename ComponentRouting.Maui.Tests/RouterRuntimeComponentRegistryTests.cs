@@ -79,4 +79,33 @@ public class RouterRuntimeComponentRegistryTests
         Assert.False(registry.IsTracked(component));
         Assert.Equal(0, registry.Count);
     }
+
+    [Fact]
+    public async Task Registry_concurrent_track_untrack_dispose_does_not_throw()
+    {
+        var registry = new RouterRuntimeComponentRegistry();
+
+        var workers = new List<Task>();
+        for (var worker = 0; worker < 8; worker++)
+        {
+            workers.Add(Task.Run(() =>
+            {
+                for (var i = 0; i < 1000; i++)
+                {
+                    var component = new TestComponent();
+                    registry.Track(component);
+                    registry.IsTracked(component);
+                    registry.Untrack(component);
+
+                    if (i % 100 == 0)
+                        registry.DisposeTrackedComponents();
+                }
+            }));
+        }
+
+        await Task.WhenAll(workers);
+
+        registry.DisposeTrackedComponents();
+        Assert.Equal(0, registry.Count);
+    }
 }
