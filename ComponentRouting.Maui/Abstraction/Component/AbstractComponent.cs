@@ -16,6 +16,9 @@ namespace ComponentRouting.Maui.Abstraction
 
         private bool WasLayoutConfigured { get; set; }
 
+        internal bool HasPendingPresentation =>
+            CompletionSource is { } completionSource && !completionSource.Task.IsCompleted;
+
         #endregion
 
         #region RoutableComponent implementation

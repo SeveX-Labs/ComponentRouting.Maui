@@ -22,6 +22,11 @@ internal sealed class RouterRuntimeComponentRegistry
         components.Remove(component);
     }
 
+    public bool IsTracked(Component component)
+    {
+        return components.Contains(component);
+    }
+
     public Task InvokeShutdownHooksAsync(
         RouterShutdownContext context,
         ISet<IRouterShutdownAwarePresenter> notifiedPresenters)
