@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.2.2] - 2026-07-02
+
+### Fixed
+
+- Made iOS chrome application a true no-op when no chrome options are configured: `PlatformComponentChromeService.Apply(...)` now returns immediately for all-null options, so consumers that never opt into chrome no longer get the status bar host controller installed. This aligns iOS with the documented all-null-by-default contract.
+- Hardened component stack cleanup by iterating a snapshot of the stack in `UnpresentComponentStack()`, so a component that completes its result and mutates the stack mid-iteration can no longer modify the collection being enumerated.
+
+### Internal
+
+- Observed and logged fire-and-forget task failures across the window/activity shutdown, device back-press, presentation, snackbar auto-dismiss, and chrome reapply paths, so exceptions are no longer swallowed silently. No timing or routing behavior changes.
+- Routed best-effort cleanup `catch` blocks through internal diagnostics so their exceptions are logged outside DEBUG as well, without rethrowing or changing the cleanup flow.
+
+### Compatibility
+
+- Patch release with internal robustness and observability fixes only.
+- No public API changes and no intentional behavior changes to routing, presentation, or dismissal.
+- The only observable change is on iOS for consumers that never configure chrome: the status bar host controller is no longer installed for all-null options (now matching the no-op contract).
+
 ## [5.2.1] - 2026-07-02
 
 ### Fixed
