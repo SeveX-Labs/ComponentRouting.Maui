@@ -421,7 +421,7 @@ public abstract class AbstractRouter : Router
     {
         if (ComponentsStack.Any())
         {
-            foreach (var component in ComponentsStack)
+            foreach (var component in ComponentsStack.ToList())
             {
                 try
                 {

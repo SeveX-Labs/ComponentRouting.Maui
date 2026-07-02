@@ -55,12 +55,15 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
         if (IsShuttingDown)
             return;
 
-#if IOS
-        ApplyIos(context);
-#else
+        // All-null chrome must be a true no-op on every platform (documented all-null-by-default
+        // contract). On iOS this also prevents installing the status bar host controller / applying
+        // chrome when the consumer configured nothing.
         if (!context.Options.HasAnyConfiguredValue)
             return;
 
+#if IOS
+        ApplyIos(context);
+#else
 #if ANDROID
         ApplyAndroid(context);
 #endif
