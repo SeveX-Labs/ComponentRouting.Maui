@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,8 +21,31 @@ public interface Router
     Task<TResult> PresentComponent<TComponent, TState, TResult>(TState input)
         where TComponent : RoutableComponent<TState, TResult>;
 
+    /// <summary>
+    /// Low-level root teardown: unpresents and disposes the currently mounted root/tab/flyout tree,
+    /// the pending pushables/modals, and the popups/snackbars, then clears the router tracking state.
+    /// </summary>
+    /// <remarks>
+    /// For a live in-process reset (signout, account switch, auth expiry) prefer
+    /// <see cref="ResetRuntimeAsync"/>, which performs this teardown as part of a coherent live reset.
+    /// <see cref="ResetRuntimeAsync"/> is NOT a semantic alias of this virtual method: it runs the
+    /// teardown directly and does NOT invoke a subclass override of <see cref="UnpresentRootComponent"/>.
+    /// Overriding this method is therefore not the recommended place for app-specific reset behavior;
+    /// put such behavior at the call site of <see cref="ResetRuntimeAsync"/> instead.
+    /// </remarks>
     Task UnpresentRootComponent();
 
+    /// <summary>
+    /// Legacy low-level API that calls <c>Unpresent()</c> on each component currently in the push stack.
+    /// It does NOT represent a full router reset: it does not clear the stack, the runtime/mount
+    /// registries, overlay ownership, or history.
+    /// </summary>
+    /// <remarks>
+    /// For a live runtime reset use <see cref="ResetRuntimeAsync"/>; to close a specific component use
+    /// <see cref="DismissComponent{TComponent, TState, TResult}"/>; to close popups use
+    /// <see cref="CloseAllPopups"/>.
+    /// </remarks>
+    [Obsolete("Use ResetRuntimeAsync, DismissComponent, or CloseAllPopups depending on the intended cleanup scope. UnpresentComponentStack is a legacy low-level API and does not represent a full router reset.", false)]
     Task UnpresentComponentStack();
 
     Task DismissComponent<TComponent, TState, TResult>(bool animated = true)

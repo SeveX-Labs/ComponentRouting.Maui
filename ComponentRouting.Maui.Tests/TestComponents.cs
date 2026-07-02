@@ -154,6 +154,8 @@ public sealed class TestRouter : Router
     }
 
     public Task UnpresentRootComponent() => Task.CompletedTask;
+
+    [Obsolete("Use ResetRuntimeAsync, DismissComponent, or CloseAllPopups depending on the intended cleanup scope. UnpresentComponentStack is a legacy low-level API and does not represent a full router reset.", false)]
     public Task UnpresentComponentStack() => Task.CompletedTask;
 
     public Task DismissComponent<TComponent, TState, TResult>(bool animated = true)

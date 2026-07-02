@@ -38,6 +38,7 @@ public abstract class AbstractRouter : Router
     private ComponentChromeService? ChromeService { get; }
     private ComponentChromeOptionsResolver? ChromeOptionsResolver { get; }
 
+    [Obsolete("SafeAreaBottomPatch is legacy and is not used by the router safe-area pipeline.", false)]
     protected View SafeAreaBottomPatch { get; set; }
 
     private ComponentHistory History { get; }
@@ -417,6 +418,7 @@ public abstract class AbstractRouter : Router
             MainThread.InvokeOnMainThreadAsync(action).GetAwaiter().GetResult();
     }
 
+    [Obsolete("Use ResetRuntimeAsync, DismissComponent, or CloseAllPopups depending on the intended cleanup scope. UnpresentComponentStack is a legacy low-level API and does not represent a full router reset.", false)]
     public virtual Task UnpresentComponentStack()
     {
         if (ComponentsStack.Any())
