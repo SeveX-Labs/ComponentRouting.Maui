@@ -161,7 +161,7 @@ public abstract class AbstractRouter : Router
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
             throw new RouterException(RouterError.PresentMethodInvokeFailed, component, ex);
         }
     }
@@ -236,7 +236,7 @@ public abstract class AbstractRouter : Router
             return false;
 
         bool resolved = IsDeviceBackPressedResolved();
-        _ = HandleDeviceBackPressedInternal();
+        HandleDeviceBackPressedInternal().ForgetSafely("OnDeviceBackPressed");
         return resolved;
     }
 
@@ -430,7 +430,7 @@ public abstract class AbstractRouter : Router
                 catch (Exception ex)
                 {
                     // ignored
-                    Debug.WriteLine(ex);
+                    ComponentRoutingDiagnostics.WriteException(ex);
                 }
             }
         }
@@ -469,7 +469,7 @@ public abstract class AbstractRouter : Router
         }
         catch (Exception e)
         {
-            Debug.WriteLine(e);
+            ComponentRoutingDiagnostics.WriteException(e);
         }
     }
 
@@ -513,7 +513,7 @@ public abstract class AbstractRouter : Router
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                ComponentRoutingDiagnostics.WriteException(ex);
             }
         }
         else if (component.IsSubclassOfRawGeneric(typeof(TabComponent<>)))
@@ -830,7 +830,7 @@ public abstract class AbstractRouter : Router
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
     }
 
@@ -859,7 +859,7 @@ public abstract class AbstractRouter : Router
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
     }
 
@@ -956,7 +956,7 @@ public abstract class AbstractRouter : Router
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
         finally
         {
@@ -1341,7 +1341,7 @@ public abstract class AbstractRouter : Router
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                ComponentRoutingDiagnostics.WriteException(ex);
             }
         }
     }

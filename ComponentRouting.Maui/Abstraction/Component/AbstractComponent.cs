@@ -58,7 +58,7 @@ namespace ComponentRouting.Maui.Abstraction
         {
             CompletionSource = new TaskCompletionSource<TResult>();
 
-            _ = PresentInternal();
+            PresentInternal().ForgetSafely("Component present");
 
             return CompletionSource.Task;
         }

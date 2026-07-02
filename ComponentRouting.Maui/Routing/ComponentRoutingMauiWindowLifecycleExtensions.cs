@@ -30,7 +30,7 @@ public static class ComponentRoutingMauiWindowLifecycleExtensions
         var effectiveShutdownOptions = shutdownOptions ?? CreateDefaultWindowDestroyingShutdownOptions();
 
         window.Created += (_, _) => router.BeginNewRuntime();
-        window.Destroying += (_, _) => _ = router.ShutdownAsync(effectiveShutdownOptions);
+        window.Destroying += (_, _) => router.ShutdownAsync(effectiveShutdownOptions).ForgetSafely("Window.Destroying shutdown");
 
         return window;
     }

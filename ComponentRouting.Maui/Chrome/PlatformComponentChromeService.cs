@@ -160,9 +160,9 @@ public sealed class PlatformComponentChromeService : ComponentChromeService
         if (IsShuttingDown)
             return;
 
-        _ = ReapplyAfterDelay(context, 16);
-        _ = ReapplyAfterDelay(context, 100);
-        _ = ReapplyAfterDelay(context, 300);
+        ReapplyAfterDelay(context, 16).ForgetSafely("Chrome reapply (16ms)");
+        ReapplyAfterDelay(context, 100).ForgetSafely("Chrome reapply (100ms)");
+        ReapplyAfterDelay(context, 300).ForgetSafely("Chrome reapply (300ms)");
     }
 
     private async Task ReapplyAfterDelay(ComponentChromeContext context, int delayMilliseconds)

@@ -70,7 +70,7 @@ namespace ComponentRouting.Maui.Extension
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex);
+                ComponentRoutingDiagnostics.WriteException(ex);
             }
 
             return propertyInfo;

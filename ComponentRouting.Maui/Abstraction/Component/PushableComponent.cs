@@ -1,4 +1,5 @@
-﻿using Microsoft.Maui.ApplicationModel;
+﻿using System;
+using Microsoft.Maui.ApplicationModel;
 using System.Threading.Tasks;
 
 namespace ComponentRouting.Maui.Abstraction
@@ -15,7 +16,15 @@ namespace ComponentRouting.Maui.Abstraction
 
         public override async void Dispose()
         {
-            await MainThread.InvokeOnMainThreadAsync(() => CompletionSource?.TrySetResult(default(TResult)));
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(() => CompletionSource?.TrySetResult(default(TResult)));
+            }
+            catch (Exception ex)
+            {
+                ComponentRoutingDiagnostics.WriteException(ex);
+            }
+
             base.Dispose();
         }
 

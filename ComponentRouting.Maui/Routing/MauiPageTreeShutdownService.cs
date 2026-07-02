@@ -103,16 +103,16 @@ internal sealed class MauiPageTreeShutdownService
         }
         catch (ObjectDisposedException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
         catch (InvalidOperationException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #if ANDROID
         catch (Java.Lang.IllegalStateException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #endif
     }
@@ -136,7 +136,7 @@ internal sealed class MauiPageTreeShutdownService
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                ComponentRoutingDiagnostics.WriteException(ex);
             }
         }
     }
@@ -149,16 +149,16 @@ internal sealed class MauiPageTreeShutdownService
         }
         catch (ObjectDisposedException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
         catch (InvalidOperationException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #if ANDROID
         catch (Java.Lang.IllegalStateException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #endif
     }
@@ -171,16 +171,16 @@ internal sealed class MauiPageTreeShutdownService
         }
         catch (ObjectDisposedException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
         catch (InvalidOperationException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #if ANDROID
         catch (Java.Lang.IllegalStateException ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
 #endif
     }

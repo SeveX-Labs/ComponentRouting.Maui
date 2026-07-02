@@ -93,7 +93,7 @@ internal sealed class RouterRuntimeComponentRegistry
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
     }
 
@@ -114,7 +114,7 @@ internal sealed class RouterRuntimeComponentRegistry
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
     }
 
@@ -126,7 +126,7 @@ internal sealed class RouterRuntimeComponentRegistry
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            ComponentRoutingDiagnostics.WriteException(ex);
         }
     }
 }

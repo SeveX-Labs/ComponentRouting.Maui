@@ -71,7 +71,7 @@ public static class ComponentRoutingMauiAppBuilderExtensions
                     if (router is null)
                         return;
 
-                    _ = router.ShutdownAsync(runtimeOptions.GetAndroidOnDestroyShutdownOptions());
+                    router.ShutdownAsync(runtimeOptions.GetAndroidOnDestroyShutdownOptions()).ForgetSafely("Android OnDestroy shutdown");
                 }));
         });
 #endif

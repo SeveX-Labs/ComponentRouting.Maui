@@ -1,4 +1,5 @@
-﻿using Microsoft.Maui.ApplicationModel;
+﻿using System;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using System.Threading.Tasks;
 
@@ -54,14 +55,14 @@ namespace ComponentRouting.Maui.Abstraction
         {
             if (State.MustCloseAutomatically)
             {
-                _ = Task.Run(async () =>
+                Task.Run(async () =>
                 {
                     int delay = State.ClosureDelayMs > 0 ? State.ClosureDelayMs : 3000;
 
                     await Task.Delay(delay);
 
                     await MainThread.InvokeOnMainThreadAsync(() => CompletionSource?.TrySetResult(false));
-                });
+                }).ForgetSafely("Snackbar auto-dismiss");
             }
 
             return Task.CompletedTask;
@@ -73,8 +74,15 @@ namespace ComponentRouting.Maui.Abstraction
 
         private async void HandleTappedOutside()
         {
-            if (CompletionSource is not null)
-                await MainThread.InvokeOnMainThreadAsync(() => CompletionSource.TrySetResult(false));
+            try
+            {
+                if (CompletionSource is not null)
+                    await MainThread.InvokeOnMainThreadAsync(() => CompletionSource.TrySetResult(false));
+            }
+            catch (Exception ex)
+            {
+                ComponentRoutingDiagnostics.WriteException(ex);
+            }
         }
 
         #endregion
