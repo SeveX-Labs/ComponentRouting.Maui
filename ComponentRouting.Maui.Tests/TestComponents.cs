@@ -157,6 +157,7 @@ public sealed class TestRouter : Router
         throw new NotSupportedException();
     }
 
+    [Obsolete("Use ResetRuntimeAsync for live runtime reset, and override OnRuntimeResetAsync for app-specific reset behavior. UnpresentRootComponent is a legacy low-level API and will be removed in a future major version.", false)]
     public Task UnpresentRootComponent() => Task.CompletedTask;
 
     [Obsolete("Use ResetRuntimeAsync, DismissComponent, or CloseAllPopups depending on the intended cleanup scope. UnpresentComponentStack is a legacy low-level API and does not represent a full router reset.", false)]

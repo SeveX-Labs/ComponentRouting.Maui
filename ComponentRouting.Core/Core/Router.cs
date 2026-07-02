@@ -22,17 +22,20 @@ public interface Router
         where TComponent : RoutableComponent<TState, TResult>;
 
     /// <summary>
-    /// Low-level root teardown: unpresents and disposes the currently mounted root/tab/flyout tree,
-    /// the pending pushables/modals, and the popups/snackbars, then clears the router tracking state.
+    /// Legacy low-level root teardown: unpresents and disposes the currently mounted root/tab/flyout
+    /// tree, the pending pushables/modals, and the popups/snackbars, then clears the router tracking
+    /// state.
     /// </summary>
     /// <remarks>
-    /// For a live in-process reset (signout, account switch, auth expiry) prefer
-    /// <see cref="ResetRuntimeAsync"/>, which performs this teardown as part of a coherent live reset.
-    /// <see cref="ResetRuntimeAsync"/> is NOT a semantic alias of this virtual method: it runs the
-    /// teardown directly and does NOT invoke a subclass override of <see cref="UnpresentRootComponent"/>.
-    /// Overriding this method is therefore not the recommended place for app-specific reset behavior;
-    /// put such behavior at the call site of <see cref="ResetRuntimeAsync"/> instead.
+    /// For a live in-process reset (signout, account switch, auth expiry) use
+    /// <see cref="ResetRuntimeAsync"/>; for app-specific behavior during that reset override
+    /// <c>OnRuntimeResetAsync</c>. <see cref="ResetRuntimeAsync"/> is NOT a semantic alias of this
+    /// virtual method: it runs the teardown directly and does NOT invoke a subclass override of
+    /// <see cref="UnpresentRootComponent"/>, so overriding this method is not the recommended place for
+    /// app-specific reset behavior. This is a legacy low-level API and is a candidate for removal in a
+    /// future major version.
     /// </remarks>
+    [Obsolete("Use ResetRuntimeAsync for live runtime reset, and override OnRuntimeResetAsync for app-specific reset behavior. UnpresentRootComponent is a legacy low-level API and will be removed in a future major version.", false)]
     Task UnpresentRootComponent();
 
     /// <summary>

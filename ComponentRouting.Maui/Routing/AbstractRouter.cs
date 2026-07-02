@@ -249,6 +249,7 @@ public abstract class AbstractRouter : Router
             component.Resume();
     }
 
+    [Obsolete("Use ResetRuntimeAsync for live runtime reset, and override OnRuntimeResetAsync for app-specific reset behavior. UnpresentRootComponent is a legacy low-level API and will be removed in a future major version.", false)]
     public virtual Task UnpresentRootComponent()
     {
         // Public sync-style API: the root teardown touches MAUI (component.Unpresent() and the tracked
