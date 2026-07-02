@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using System.Threading.Tasks;
@@ -33,6 +34,8 @@ namespace ComponentRouting.Maui.Abstraction
 
         private SnackbarPresenter SnackbarPresenter => (Presenter as SnackbarPresenter);
 
+        private CancellationTokenSource? autoDismissCancellationTokenSource;
+
         #endregion
 
         #region abstract methods implementation
@@ -55,17 +58,67 @@ namespace ComponentRouting.Maui.Abstraction
         {
             if (State.MustCloseAutomatically)
             {
-                Task.Run(async () =>
-                {
-                    int delay = State.ClosureDelayMs > 0 ? State.ClosureDelayMs : 3000;
+                // Cancel any previous timer for this instance, then start a cancellable one so a
+                // manual/programmatic dismiss stops the pending auto-dismiss instead of firing late.
+                CancelAutoDismissTimer();
 
-                    await Task.Delay(delay);
+                var cancellationTokenSource = new CancellationTokenSource();
+                autoDismissCancellationTokenSource = cancellationTokenSource;
 
-                    await MainThread.InvokeOnMainThreadAsync(() => CompletionSource?.TrySetResult(false));
-                }).ForgetSafely("Snackbar auto-dismiss");
+                RunAutoDismissTimerAsync(cancellationTokenSource.Token)
+                    .ForgetSafely("Snackbar auto-dismiss");
             }
 
             return Task.CompletedTask;
+        }
+
+        private async Task RunAutoDismissTimerAsync(CancellationToken cancellationToken)
+        {
+            var delay = State.ClosureDelayMs > 0 ? State.ClosureDelayMs : 3000;
+
+            try
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // The snackbar was dismissed/disposed before the delay elapsed: skip the late completion.
+                return;
+            }
+
+            await MainThread.InvokeOnMainThreadAsync(() => CompletionSource?.TrySetResult(false));
+        }
+
+        public override bool Unpresent()
+        {
+            CancelAutoDismissTimer();
+            return base.Unpresent();
+        }
+
+        public override void Dispose()
+        {
+            CancelAutoDismissTimer();
+            base.Dispose();
+        }
+
+        private void CancelAutoDismissTimer()
+        {
+            var cancellationTokenSource = Interlocked.Exchange(ref autoDismissCancellationTokenSource, null);
+            if (cancellationTokenSource is null)
+                return;
+
+            try
+            {
+                cancellationTokenSource.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed: nothing to cancel.
+            }
+            finally
+            {
+                cancellationTokenSource.Dispose();
+            }
         }
 
         #endregion
@@ -74,6 +127,8 @@ namespace ComponentRouting.Maui.Abstraction
 
         private async void HandleTappedOutside()
         {
+            CancelAutoDismissTimer();
+
             try
             {
                 if (CompletionSource is not null)
