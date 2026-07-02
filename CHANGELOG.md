@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.3.0] - 2026-07-02
+
+### Added
+
+- Added `OnRuntimeResetAsync(RouterRuntimeResetOptions options)`, a protected virtual reset hook for app-specific live-reset behavior. It is invoked by `ResetRuntimeAsync(...)` (on the main thread, after the router state is cleared); it is not part of the `Router` interface and is not invoked by `ShutdownAsync(...)`.
+
+### Changed
+
+- Unified the runtime cleanup used by live reset, shutdown, and runtime recreation into a single path, so no scenario leaves stale router state (component stack, history, overlay ownership, mount registry, runtime registry, or mounted/tab/flyout references).
+- Distinguished visual live-reset cleanup from non-visual shutdown/recreation cleanup: `ShutdownAsync(...)`/`ShutdownInternalAsync(...)` and `BeginNewRuntime()` now clear the full router state without unpresenting a visual tree that may already be destroyed.
+- Clarified live-reset semantics: `ResetRuntimeAsync(...)` performs logical/runtime cleanup; it does not pop each page individually, and the previous visual tree is discarded when the next root is presented and replaces `Window.Page`.
+
+### Deprecated
+
+- Deprecated `UnpresentRootComponent()` in favor of `ResetRuntimeAsync(...)` for live reset and `OnRuntimeResetAsync(...)` for app-specific reset behavior.
+- Deprecated `UnpresentComponentStack()` as a legacy low-level cleanup API.
+
+### Fixed
+
+- Snackbar auto-dismiss timers are now cancelled when the snackbar is manually dismissed, unpresented, or disposed, so a late timer no longer fires after an early dismissal. UX and timing are unchanged.
+
+### Compatibility
+
+- Minor release: an additive protected hook plus non-error deprecations. No public `Router` interface changes.
+- `UnpresentRootComponent()` and `UnpresentComponentStack()` remain available in 5.x (obsolete, non-error) and are candidates for removal in a future v6.
+
 ## [5.2.2] - 2026-07-02
 
 ### Fixed

@@ -138,7 +138,7 @@ ComponentRouting.Maui does not shut down the router on background, stopped, or s
 `ResetRuntimeAsync(...)`:
 
 - closes/clears overlays, popups, and snackbars;
-- unpresents root/tab/flyout and the mounted component stack through the `UnpresentRootComponent()` teardown;
+- runs the live-reset teardown: unpresents root/tab/flyout and the mounted component stack;
 - clears the component stack, mount registry, surface ownership, and disposes/untracks tracked/pending components;
 - leaves the router ready to present a new root/login immediately;
 - does not call `BeginShutdown()`, does not set `IsShuttingDown = true`, and does not disconnect the MAUI page tree;
@@ -153,9 +153,30 @@ await router.ResetRuntimeAsync(new RouterRuntimeResetOptions
     Reason = RouterRuntimeResetReason.Signout
 });
 
-// The router is ready to present the login/root flow again.
+// Then present the login/root flow again.
+// The previous visual tree is discarded when the next root replaces Window.Page.
 // No BeginNewRuntime() call is required.
 ```
+
+`ResetRuntimeAsync(...)` performs logical/runtime cleanup: it clears the router state and disposes/untracks the tracked components. It does not pop each pushed page, modal, tab, or flyout one by one. In live-reset flows (signout/logout/account switch/authentication-expired), the previous visual tree is discarded when you present the next root and it replaces `Window.Page`. So the correct pattern is: `await ResetRuntimeAsync(...)`, then present the login/root flow again.
+
+#### App-specific reset behavior: `OnRuntimeResetAsync(...)`
+
+Override the protected `OnRuntimeResetAsync(RouterRuntimeResetOptions options)` hook on your router to run app-specific behavior at the sanctioned live-reset point. It is invoked by `ResetRuntimeAsync(...)`, on the main thread, after the router state has been cleared; it is not invoked by `ShutdownAsync(...)`. Exceptions thrown in the hook propagate to the caller of `ResetRuntimeAsync(...)`. This replaces the previous (now discouraged) practice of overriding `UnpresentRootComponent()` for reset behavior.
+
+```csharp
+protected override async Task OnRuntimeResetAsync(RouterRuntimeResetOptions options)
+{
+    await base.OnRuntimeResetAsync(options);
+
+    // App-specific reset cleanup, for example:
+    // - restore orientation
+    // - clear app-specific UI state
+    // - reset transient runtime flags
+}
+```
+
+> `UnpresentRootComponent()` and `UnpresentComponentStack()` are legacy low-level APIs (obsolete as of 5.3.0). Use `ResetRuntimeAsync(...)`, `DismissComponent(...)`, or `CloseAllPopups()` depending on the intended cleanup scope.
 
 ## Non-Top Pushable Removal
 
@@ -188,7 +209,7 @@ Because the two steps are decoupled, dismissing a top pushable without completin
 
 - Always complete the result with `CompletionSource?.TrySetResult(...)` when the flow ends, before or after `DismissComponent(...)`.
 - Do not re-present the same component before completing its previous presentation. Since 5.1.0 the router blocks this with `RouterException(RouterError.ComponentAlreadyPresented)`; complete the result first, then present it again. A `Preload -> Present` sequence stays valid because a preloaded component has no pending presentation.
-- A pending, never-completed pushable is disposed by router runtime shutdown (app kill, window destroy, `Router.ShutdownAsync(...)`). Since 5.1.0, `Router.UnpresentRootComponent()` also disposes and untracks any still-tracked components as a final cleanup step, so a full root reset (signout/live reset) no longer leaves dismissed-but-uncompleted components behind.
+- A pending, never-completed pushable is disposed by router runtime shutdown (app kill, window destroy, `Router.ShutdownAsync(...)`). A live reset via `Router.ResetRuntimeAsync(...)` also disposes and untracks any still-tracked components as a final cleanup step, so a full root reset (signout/live reset) no longer leaves dismissed-but-uncompleted components behind.
 
 `ModalPageComponent` uses a different, intentional semantic: completing the result also performs the modal's visual dismissal, and modals remain top-only. This difference between pushables and modals is intentional for now.
 

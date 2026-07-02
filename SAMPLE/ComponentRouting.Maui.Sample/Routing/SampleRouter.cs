@@ -29,4 +29,12 @@ public sealed class SampleRouter : AbstractRouter
         // Custom sample routing rules could be added here before deferring to library behavior.
         return base.PresentComponent(component, input);
     }
+
+    protected override Task OnRuntimeResetAsync(RouterRuntimeResetOptions options)
+    {
+        // Invoked by ResetRuntimeAsync(...) after the runtime state has been cleared (live reset).
+        // App-specific reset behavior (e.g. restore orientation, reset transient UI state) goes here.
+        System.Diagnostics.Debug.WriteLine($"Runtime reset completed: {options.Reason}");
+        return base.OnRuntimeResetAsync(options);
+    }
 }
