@@ -262,36 +262,61 @@ public abstract class AbstractRouter : Router
     private void UnpresentRootComponentCore()
     {
         WarnIfWindowLifecycleWasNotAttached();
+        ResetRuntimeStateCore(RuntimeStateCleanupScope.LiveReset);
+    }
 
-        if (History.Snackbars.Any())
+    private enum RuntimeStateCleanupScope
+    {
+        // Live in-process reset: the visual tree is alive, so Unpresent() each component (completing
+        // its pending presentation) before dropping the router state.
+        LiveReset,
+
+        // Shutdown / runtime reopen: the visual tree may already be destroyed, so do NOT Unpresent()
+        // the old components; only drop the router state and dispose the tracked components.
+        NonVisual
+    }
+
+    // Single source of truth for clearing the router runtime state, shared by live reset, shutdown and
+    // runtime reopen. LiveReset additionally unpresents the live visual tree; NonVisual only drops the
+    // state (registry-level) so a suspended shutdown / reopen never touches pages or navigation that
+    // may already be destroyed. Both modes leave the router state fully coherent (no stale references).
+    private void ResetRuntimeStateCore(RuntimeStateCleanupScope scope)
+    {
+        var unpresentVisualTree = scope == RuntimeStateCleanupScope.LiveReset;
+
+        foreach (var snackbar in History.ClearSnackbars())
         {
-            foreach (var snackbar in History.ClearSnackbars())
+            if (unpresentVisualTree)
                 snackbar.Unpresent();
         }
 
-        if (History.Popups.Any())
+        foreach (var popup in History.ClearPopups())
         {
-            foreach (var popup in History.ClearPopups())
+            if (unpresentVisualTree)
                 popup.Unpresent();
         }
 
-        if (ComponentsStack.Any())
+        if (unpresentVisualTree)
         {
-            var componentsClone = ComponentsStack.ToList();
-            foreach (var component in componentsClone)
+            foreach (var component in ComponentsStack.ToList())
                 component.Unpresent();
         }
+
         ComponentsStack = new List<Component>();
         ComponentMountRegistry.Clear();
 
-        CurrentTabComponent?.Unpresent();
-        CurrentFlyoutComponent?.Unpresent();
-        MountedComponent?.Unpresent();
+        if (unpresentVisualTree)
+        {
+            CurrentTabComponent?.Unpresent();
+            CurrentFlyoutComponent?.Unpresent();
+            MountedComponent?.Unpresent();
+        }
 
         CurrentTabComponent = null;
         CurrentFlyoutComponent = null;
         MountedComponent = null;
-        OverlaySurfaceOwnership.Clear("UnpresentRootComponent");
+
+        OverlaySurfaceOwnership.Clear(unpresentVisualTree ? "LiveReset" : "NonVisualRuntimeClear");
 
         RuntimeComponentRegistry.DisposeTrackedComponents();
     }
@@ -301,19 +326,40 @@ public abstract class AbstractRouter : Router
         // Live (in-process) reset for signout / account switch: the Window stays alive and the
         // router must be immediately ready to present a new root/login.
         //
-        // Reuses the UnpresentRootComponent teardown so the singleton (non-overlay) components are
-        // BOTH Unpresent()-ed (which completes their pending presentation) AND untracked. Skipping
-        // that would leave IsTracked && HasPendingPresentation == true, so the next presentation of
-        // the same singleton root/login would throw ComponentAlreadyPresented.
+        // Runs the unified LiveReset teardown (via UnpresentRootComponentCore) so the singleton
+        // (non-overlay) components are BOTH Unpresent()-ed (which completes their pending presentation)
+        // AND untracked. Skipping that would leave IsTracked && HasPendingPresentation == true, so the
+        // next presentation of the same singleton root/login would throw ComponentAlreadyPresented.
         //
         // Intentionally does NOT: call RuntimeLifecycle.BeginShutdown(), set IsShuttingDown, require
         // BeginNewRuntime() afterward, or disconnect the MAUI page tree.
         //
-        // Async main-thread marshalling: runs the teardown inline when already on the main thread,
-        // otherwise dispatches to it without blocking.
-        //
-        // options.Reason is currently informational (reserved for future reset-aware hooks / telemetry).
-        return MainThread.InvokeOnMainThreadAsync(UnpresentRootComponentCore);
+        // The teardown and the OnRuntimeResetAsync hook run on the main thread (inline when already on
+        // it, otherwise dispatched without blocking).
+        var effectiveOptions = options ?? new RouterRuntimeResetOptions();
+
+        return MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            UnpresentRootComponentCore();
+            await OnRuntimeResetAsync(effectiveOptions);
+        });
+    }
+
+    /// <summary>
+    /// App-specific extension point invoked once by <see cref="ResetRuntimeAsync"/>, on the main
+    /// thread, AFTER the router runtime state has been cleared. Override it to run "reset completed"
+    /// behavior at the sanctioned live-reset point (for example restoring orientation or resetting
+    /// application state).
+    /// </summary>
+    /// <remarks>
+    /// Exceptions thrown here propagate to the caller of <see cref="ResetRuntimeAsync"/>, because a
+    /// live reset is an explicit consumer-requested operation. This hook is NOT invoked by
+    /// <see cref="ShutdownAsync"/> or <see cref="BeginNewRuntime"/>, and it does not replace
+    /// <see cref="IRouterShutdownAwareComponent"/>. The base implementation is a no-op.
+    /// </remarks>
+    protected virtual Task OnRuntimeResetAsync(RouterRuntimeResetOptions options)
+    {
+        return Task.CompletedTask;
     }
 
     public virtual Task ShutdownAsync(
@@ -349,12 +395,11 @@ public abstract class AbstractRouter : Router
         if (wasShuttingDown)
         {
             // The runtime was reopened after a shutdown (e.g. Window.Created / Activity.OnCreate).
-            // Clean the stale runtime-level state left by the previous generation so the new runtime
-            // starts coherent and the next presentation of the same singleton root/login is not
-            // blocked by ComponentAlreadyPresented. Registry-level only: no visual tree / navigation
-            // is touched (a suspended shutdown may reference pages/navigation already destroyed).
-            RuntimeComponentRegistry.DisposeTrackedComponents();
-            ComponentMountRegistry.Clear();
+            // Clear the stale runtime state left by the previous generation so the new runtime starts
+            // coherent and the next presentation of the same singleton root/login is not blocked by
+            // ComponentAlreadyPresented. NonVisual: no Unpresent() on the old visual tree, which a
+            // suspended shutdown may reference as pages/navigation already destroyed.
+            ResetRuntimeStateCore(RuntimeStateCleanupScope.NonVisual);
         }
 
         lock (shutdownGate)
@@ -395,14 +440,15 @@ public abstract class AbstractRouter : Router
         }
         finally
         {
-            // component.Dispose() can touch the visual tree; dispose/clear on the main thread.
+            // component.Dispose() can touch the visual tree; run the runtime-state clear on the main
+            // thread. NonVisual: drop the router state + dispose tracked components without unpresenting
+            // the old visual tree. The generation guard (B4) keeps this from touching a reopened runtime.
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 if (RuntimeLifecycle.Generation != context.Generation)
                     return;
 
-                RuntimeComponentRegistry.DisposeTrackedComponents();
-                ComponentMountRegistry.Clear();
+                ResetRuntimeStateCore(RuntimeStateCleanupScope.NonVisual);
             });
         }
     }

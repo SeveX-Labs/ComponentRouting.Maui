@@ -130,6 +130,10 @@ public sealed class TestRouter : Router
         return runtimeComponentRegistry.IsTracked(component);
     }
 
+    public bool IsShuttingDownForTest => runtimeLifecycle.IsShuttingDown;
+
+    public Func<RouterRuntimeResetOptions, Task>? OnRuntimeResetForTest { get; set; }
+
     public TComponent? GetMountedOverlayComponent<TComponent>(bool throwIfMultiple = false)
         where TComponent : Component => default;
 
@@ -186,13 +190,13 @@ public sealed class TestRouter : Router
 
     public void BeginNewRuntime()
     {
-        // Mirrors AbstractRouter.BeginNewRuntime: on reopen after shutdown, clean the stale runtime
-        // registry so old singletons are not left IsTracked && pending.
+        // Mirrors AbstractRouter.BeginNewRuntime: on reopen after shutdown, clear the stale runtime
+        // state (NonVisual) so old tracked components and stack entries are not left behind.
         var wasShuttingDown = runtimeLifecycle.IsShuttingDown;
         runtimeLifecycle.BeginNewRuntime();
 
         if (wasShuttingDown)
-            runtimeComponentRegistry.DisposeTrackedComponents();
+            ResetRuntimeStateCore();
 
         if (runtimeLifecycle.IsShuttingDown)
             return;
@@ -201,12 +205,26 @@ public sealed class TestRouter : Router
         shutdownTask = null;
     }
 
-    public Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null)
+    public async Task ResetRuntimeAsync(RouterRuntimeResetOptions? options = null)
     {
-        // Mirrors AbstractRouter.ResetRuntimeAsync: a live reset clears tracked/pending
-        // components and never touches the runtime lifecycle (no BeginShutdown / IsShuttingDown).
+        // Mirrors AbstractRouter.ResetRuntimeAsync: a live reset clears the runtime state (never
+        // touching the lifecycle), then invokes the OnRuntimeReset hook AFTER cleanup, propagating
+        // exceptions to the caller.
+        var effectiveOptions = options ?? new RouterRuntimeResetOptions();
+
+        ResetRuntimeStateCore();
+
+        if (OnRuntimeResetForTest is not null)
+            await OnRuntimeResetForTest(effectiveOptions);
+    }
+
+    private void ResetRuntimeStateCore()
+    {
+        // Mirrors AbstractRouter.ResetRuntimeStateCore for the state this Core double models: the
+        // component stack and the runtime component registry. (History, overlay ownership, mount
+        // registry and mounted/tab/flyout references are MAUI-bound and not represented here.)
+        ComponentsStack.Clear();
         runtimeComponentRegistry.DisposeTrackedComponents();
-        return Task.CompletedTask;
     }
 
     public bool OnDeviceBackPressed() => false;
@@ -225,7 +243,7 @@ public sealed class TestRouter : Router
             // Mirrors AbstractRouter.ShutdownInternalAsync: skip the destructive cleanup if the
             // runtime was reopened (generation changed) while this shutdown was suspended.
             if (runtimeLifecycle.Generation == context.Generation)
-                runtimeComponentRegistry.DisposeTrackedComponents();
+                ResetRuntimeStateCore();
         }
     }
 }
