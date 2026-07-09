@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.3.1] - 2026-07-09
+
+### Fixed
+
+- Fixed repeated finalization of singleton modal and fullscreen modal components: the same singleton instance is now disposed correctly on every subsequent close.
+- Treat the component finalization guard as an in-flight state instead of a permanent finalized state, allowing later dismissals of the same singleton instance to enter finalization again.
+
+### Compatibility
+
+- Patch release with no breaking changes and no public API changes.
+
 ## [5.3.0] - 2026-07-02
 
 ### Added
