@@ -1009,6 +1009,9 @@ public abstract class AbstractRouter : Router
         }
         finally
         {
+            // End the in-flight finalize guard so this instance can be finalized/disposed again on a later
+            // close. Without this, a reused singleton modal (never re-Track'd) would dispose only once.
+            ComponentMountRegistry.EndFinalize(component);
             RuntimeComponentRegistry.Untrack(component);
         }
     }

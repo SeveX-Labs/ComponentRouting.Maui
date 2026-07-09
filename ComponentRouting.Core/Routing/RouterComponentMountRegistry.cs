@@ -13,7 +13,11 @@ internal sealed class RouterComponentMountRegistry<TMount>
 
     private readonly Dictionary<Type, Component> latestComponentByType = new();
 
-    private readonly HashSet<Component> finalizedComponents =
+    // Components whose finalization is CURRENTLY in progress: an in-flight guard against concurrent/
+    // reentrant FinalizeComponent, NOT a permanent "already finalized" set. Added by TryBeginFinalize and
+    // removed by EndFinalize (from FinalizeComponent's finally), so the SAME instance can be finalized again
+    // on a later present/close — essential for reused singleton modals (which are never re-Track'd).
+    private readonly HashSet<Component> finalizingComponents =
         new(ReferenceEqualityComparer<Component>.Instance);
 
     public void Track(Component component, TMount mount)
@@ -22,7 +26,7 @@ internal sealed class RouterComponentMountRegistry<TMount>
         {
             mountsByComponent[component] = mount;
             latestComponentByType[component.GetType()] = component;
-            finalizedComponents.Remove(component);
+            finalizingComponents.Remove(component);
         }
     }
 
@@ -62,10 +66,21 @@ internal sealed class RouterComponentMountRegistry<TMount>
         }
     }
 
+    // Returns true if finalization may begin now (this instance is not already being finalized). The caller
+    // MUST call EndFinalize when done (see AbstractRouter.FinalizeComponent's finally) so the SAME instance
+    // can be finalized again on a later close — this is what makes reused singleton modals dispose every
+    // time instead of only once.
     public bool TryBeginFinalize(Component component)
     {
         lock (gate)
-            return finalizedComponents.Add(component);
+            return finalizingComponents.Add(component);
+    }
+
+    // Marks the in-flight finalization complete, allowing a future finalization of the same instance.
+    public void EndFinalize(Component component)
+    {
+        lock (gate)
+            finalizingComponents.Remove(component);
     }
 
     public void ClearMounts()
@@ -83,7 +98,7 @@ internal sealed class RouterComponentMountRegistry<TMount>
         {
             mountsByComponent.Clear();
             latestComponentByType.Clear();
-            finalizedComponents.Clear();
+            finalizingComponents.Clear();
         }
     }
 }
