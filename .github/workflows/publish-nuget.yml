@@ -22,12 +22,12 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+      - name: Install MAUI workloads
+        run: dotnet workload install maui
       - name: Restore tests
         run: dotnet restore ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj
       - name: Test
         run: dotnet test ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj -c Release --no-restore
-      - name: Install MAUI workloads
-        run: dotnet workload install maui --skip-manifest-update
       - name: Restore library
         run: dotnet restore ComponentRouting.Maui/ComponentRouting.Maui.csproj
       - name: Build Android library

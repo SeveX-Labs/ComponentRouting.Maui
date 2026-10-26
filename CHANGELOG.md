@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The `Microsoft.Maui.Controls` dependency of `ComponentRouting.Maui` is now taken from the new `ComponentRoutingMauiControlsVersion` property (default `10.0.0`) instead of `$(MauiVersion)`, so the published minimum no longer follows the installed MAUI workload or the sample's `-p:MauiVersion` override. The property can be overridden explicitly with `-p:ComponentRoutingMauiControlsVersion=x.y.z`.
+
+### Internal
+
+- Updated the repository toolchain to .NET SDK 10.0.403 with workload set 10.0.402, pinned in `global.json` (`version` 10.0.403, `rollForward` `latestPatch`, `workloadVersion` 10.0.402). This affects only people and CI jobs that build the repository.
+- The CI and publish workflows now run `dotnet workload install maui` (without `--skip-manifest-update`) before restoring and testing, because the workload-set pin makes every MSBuild command, including the plain `net10.0` test restore, require the set to be installed.
+- Documented in the README the separate requirements for developing the repository and for consuming the NuGet package, the workload preparation steps, and `ComponentRoutingMauiControlsVersion`.
+
+### Compatibility
+
+- Maintenance only: no intentional change to target frameworks, public API, runtime behavior, or the minimum NuGet requirements (`Microsoft.Maui.Controls` 10.0.0 or later).
+- NuGet consumers do not need SDK 10.0.403. Only 10.0.403 has been validated as the repository SDK; later 10.0.4xx patches are allowed by the `latestPatch` policy but are not necessarily tested.
+
 ## [5.3.1] - 2026-07-09
 
 ### Fixed
