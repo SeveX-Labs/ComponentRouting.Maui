@@ -20,6 +20,8 @@
     <PackageId>ComponentRouting.Maui</PackageId>
     <Version>5.3.1</Version>
     <PackageVersion>5.3.1</PackageVersion>
+    <!-- Minimum Microsoft.Maui.Controls required by this package. Independent of the installed MAUI workload ($(MauiVersion)); override explicitly with -p:ComponentRoutingMauiControlsVersion=x.y.z -->
+    <ComponentRoutingMauiControlsVersion Condition="'$(ComponentRoutingMauiControlsVersion)' == ''">10.0.0</ComponentRoutingMauiControlsVersion>
     <Title>ComponentRouting.Maui</Title>
     <Description>Component-based routing, navigation, presenters, overlays, snackbars, and dependency-injection helpers for .NET MAUI applications.</Description>
     <Authors>Alessandro Severa</Authors>
@@ -75,7 +77,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="PropertyChanged.Fody" Version="4.1.0" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(ComponentRoutingMauiControlsVersion)" />
   </ItemGroup>
 
   <Target Name="AddCoreAssemblyToPackage" Returns="@(BuildOutputInPackage)">

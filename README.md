@@ -19,10 +19,30 @@ The library focuses on routing and composition rather than visual styling. Your 
 
 ## Requirements
 
+### Consuming the NuGet package
+
 - .NET 10 SDK.
-- .NET MAUI workload for MAUI apps and the sample app.
+- .NET MAUI workload for MAUI apps.
+- `Microsoft.Maui.Controls` 10.0.0 or later (declared as a package dependency).
 - `Microsoft.Extensions.DependencyInjection`.
 - `NGettext`, because the public localization interfaces expose `NGettext.ICatalog`.
+
+These requirements are unchanged by the repository toolchain below. Consuming the package does not require SDK 10.0.403 or workload set 10.0.402.
+
+### Developing this repository
+
+These requirements apply only to people and CI jobs that build or test the repository itself:
+
+- .NET SDK 10.0.403, or a later patch of the same feature band (10.0.4xx). `global.json` sets `rollForward` to `latestPatch` explicitly. This is not the default: when `rollForward` is omitted and a `version` is set, the default is `patch`, which keeps using the requested version when it is installed. With `latestPatch`, a newer installed 10.0.4xx patch is selected instead. Only 10.0.403 has been validated for this repository; later patches are allowed by the policy but have not been tested.
+- .NET workload set 10.0.402, pinned by `workloadVersion` in `global.json`. The SDK refuses MSBuild commands (including `dotnet restore` and `dotnet test` of the plain `net10.0` test project) until this set is installed.
+- The .NET MAUI workload, installed as described in [Build And Test](#build-and-test).
+- Android platform tooling and a JDK for the Android build (validated with JDK 21, Temurin). Building the library for iOS and MacCatalyst needs a Mac with Xcode; the library build was validated with Xcode 27.0.
+
+#### `ComponentRoutingMauiControlsVersion`
+
+`ComponentRouting.Maui.csproj` defines the `ComponentRoutingMauiControlsVersion` property (default `10.0.0`) and uses it for the `Microsoft.Maui.Controls` package reference. It sets the minimum `Microsoft.Maui.Controls` version published in the package, independently of `MauiVersion`, which follows the installed MAUI workload (10.0.110 with workload set 10.0.402) and also drives the sample app. Without the property, updating the workload would silently raise the minimum that NuGet consumers must satisfy.
+
+Override it only deliberately, for example `-p:ComponentRoutingMauiControlsVersion=10.0.20`. Changing the default changes the package's dependency range and must be handled as a compatibility change in the changelog.
 
 The package targets:
 
@@ -548,6 +568,17 @@ The app creates an initial placeholder window page, then presents the root compo
 
 ## Build And Test
 
+Run every command from the repository root, so that `global.json` is picked up. Install the MAUI workload first, before any restore, test or build:
+
+```bash
+dotnet --version                 # 10.0.403 (or a later 10.0.4xx patch, see Requirements)
+dotnet workload install maui     # installs workload set 10.0.402, as pinned by global.json
+```
+
+Do not add `--skip-manifest-update`: with the `workloadVersion` pin it fails on an SDK that does not already have the set. The CI workflows (`.github/workflows/ci.yml` and `publish-nuget.yml`) run the same `dotnet workload install maui` step before restoring and testing.
+
+Then restore, build and test:
+
 ```bash
 dotnet restore ComponentRouting.Maui.sln
 dotnet build ComponentRouting.Maui/ComponentRouting.Maui.csproj -f net10.0-android -c Release --no-restore
@@ -555,7 +586,9 @@ dotnet test ComponentRouting.Maui.Tests/ComponentRouting.Maui.Tests.csproj -c Re
 dotnet build SAMPLE/ComponentRouting.Maui.Sample/ComponentRouting.Maui.Sample.csproj -f net10.0-android -c Debug
 ```
 
-The Android sample build requires the .NET MAUI workload and Android platform tooling.
+The Android sample build requires the .NET MAUI workload and Android platform tooling. CI builds the sample with `-p:MauiVersion=10.0.20`; that override affects the sample only, because the library's `Microsoft.Maui.Controls` minimum comes from `ComponentRoutingMauiControlsVersion`.
+
+The sample app has not been validated for iOS or MacCatalyst with the 27.x Apple packs that ship with workload set 10.0.402: its MacCatalyst `SupportedOSPlatformVersion` (15.0) is below the 17.0 minimum of those packs, and it has no UIScene manifest. Library builds for the three target frameworks are not affected.
 
 
 ## Changelog
